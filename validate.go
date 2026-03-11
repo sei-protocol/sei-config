@@ -70,11 +70,27 @@ func (r *ValidationResult) Errors() []Diagnostic {
 	return errs
 }
 
+// ValidateOpts controls optional validation behavior.
+type ValidateOpts struct {
+	// MaxVersion overrides CurrentVersion for the version ceiling check.
+	// When zero, CurrentVersion is used.
+	MaxVersion int
+}
+
 // Validate checks a SeiConfig for correctness and returns all findings.
 func Validate(cfg *SeiConfig) *ValidationResult {
+	return ValidateWithOpts(cfg, ValidateOpts{})
+}
+
+// ValidateWithOpts checks a SeiConfig with configurable options.
+func ValidateWithOpts(cfg *SeiConfig, opts ValidateOpts) *ValidationResult {
 	r := &ValidationResult{}
+	maxVer := CurrentVersion
+	if opts.MaxVersion > 0 {
+		maxVer = opts.MaxVersion
+	}
 	validateMode(r, cfg)
-	validateVersion(r, cfg)
+	validateVersion(r, cfg, maxVer)
 	validateChain(r, cfg)
 	validateNetwork(r, cfg)
 	validateConsensus(r, cfg)
@@ -100,14 +116,15 @@ func validateMode(r *ValidationResult, cfg *SeiConfig) {
 	}
 }
 
-func validateVersion(r *ValidationResult, cfg *SeiConfig) {
+func validateVersion(r *ValidationResult, cfg *SeiConfig, maxVersion int) {
 	if cfg.Version < 1 {
 		r.addError("version", "config version must be >= 1")
 	}
-	if cfg.Version > CurrentVersion {
+	if cfg.Version > maxVersion {
 		r.addError("version", fmt.Sprintf(
-			"config version %d is newer than supported version %d; upgrade or run `seictl config migrate`",
-			cfg.Version, CurrentVersion))
+			"config version %d is newer than supported version %d; "+
+				"upgrade or run `seictl config migrate`",
+			cfg.Version, maxVersion))
 	}
 }
 
