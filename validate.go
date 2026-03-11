@@ -95,7 +95,8 @@ func validateMode(r *ValidationResult, cfg *SeiConfig) {
 		return
 	}
 	if !cfg.Mode.IsValid() {
-		r.addError("mode", fmt.Sprintf("unknown mode %q; valid modes: validator, full, seed, archive, rpc, indexer", cfg.Mode))
+		r.addError("mode", fmt.Sprintf(
+			"unknown mode %q; valid modes: validator, full, seed, archive, rpc, indexer", cfg.Mode))
 	}
 }
 
@@ -104,7 +105,9 @@ func validateVersion(r *ValidationResult, cfg *SeiConfig) {
 		r.addError("version", "config version must be >= 1")
 	}
 	if cfg.Version > CurrentVersion {
-		r.addError("version", fmt.Sprintf("config version %d is newer than supported version %d; upgrade the binary or run `seictl config migrate`", cfg.Version, CurrentVersion))
+		r.addError("version", fmt.Sprintf(
+			"config version %d is newer than supported version %d; upgrade or run `seictl config migrate`",
+			cfg.Version, CurrentVersion))
 	}
 }
 
@@ -229,9 +232,11 @@ func validateStateSync(r *ValidationResult, cfg *SeiConfig) {
 func validateStorage(r *ValidationResult, cfg *SeiConfig) {
 	s := &cfg.Storage
 	switch s.PruningStrategy {
-	case "default", "nothing", "everything", "custom":
+	case PruningDefault, PruningNothing, PruningEverything, PruningCustom:
 	default:
-		r.addError("storage.pruning", fmt.Sprintf("unknown pruning strategy %q; valid: default, nothing, everything, custom", s.PruningStrategy))
+		r.addError("storage.pruning", fmt.Sprintf(
+			"unknown pruning strategy %q; valid: %s, %s, %s, %s",
+			s.PruningStrategy, PruningDefault, PruningNothing, PruningEverything, PruningCustom))
 	}
 
 	sc := &s.StateCommit
@@ -250,7 +255,8 @@ func validateStorage(r *ValidationResult, cfg *SeiConfig) {
 		r.addError("storage.state_store.read_mode", fmt.Sprintf("invalid read_mode: %q", ss.ReadMode))
 	}
 	if ss.Backend != "" && ss.Backend != "pebbledb" && ss.Backend != "rocksdb" {
-		r.addWarning("storage.state_store.backend", fmt.Sprintf("unusual backend %q; expected pebbledb or rocksdb", ss.Backend))
+		r.addWarning("storage.state_store.backend", fmt.Sprintf(
+			"unusual backend %q; expected pebbledb or rocksdb", ss.Backend))
 	}
 }
 
@@ -288,7 +294,7 @@ func validateSelfRemediation(_ *ValidationResult, _ *SeiConfig) {
 }
 
 func validateCrossField(r *ValidationResult, cfg *SeiConfig) {
-	if cfg.Storage.PruningStrategy == "everything" && cfg.Storage.SnapshotInterval > 0 {
+	if cfg.Storage.PruningStrategy == PruningEverything && cfg.Storage.SnapshotInterval > 0 {
 		r.addError("storage", "cannot enable snapshots with 'everything' pruning strategy")
 	}
 }

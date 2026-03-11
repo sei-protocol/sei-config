@@ -197,29 +197,30 @@ func atomicWriteTOML(path string, v any) error {
 		return fmt.Errorf("creating temp file: %w", err)
 	}
 	tmpPath := tmp.Name()
+	cleanup := func() { _ = os.Remove(tmpPath) }
 
 	if _, err := tmp.Write(buf.Bytes()); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
+		_ = tmp.Close()
+		cleanup()
 		return fmt.Errorf("writing temp file: %w", err)
 	}
 	if err := tmp.Sync(); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
+		_ = tmp.Close()
+		cleanup()
 		return fmt.Errorf("syncing temp file: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpPath)
+		cleanup()
 		return fmt.Errorf("closing temp file: %w", err)
 	}
 
 	if err := os.Chmod(tmpPath, 0o644); err != nil {
-		os.Remove(tmpPath)
+		cleanup()
 		return fmt.Errorf("setting permissions: %w", err)
 	}
 
 	if err := os.Rename(tmpPath, path); err != nil {
-		os.Remove(tmpPath)
+		cleanup()
 		return fmt.Errorf("renaming temp file: %w", err)
 	}
 

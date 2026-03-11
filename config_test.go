@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+const testRPCAddr = "tcp://0.0.0.0:26657"
+
 func TestDefaultForMode_AllModesValid(t *testing.T) {
 	modes := []NodeMode{ModeValidator, ModeFull, ModeSeed, ModeArchive, ModeRPC, ModeIndexer}
 	for _, mode := range modes {
@@ -54,7 +56,7 @@ func TestDefaultForMode_SeedHighConnections(t *testing.T) {
 	if !cfg.Network.P2P.AllowDuplicateIP {
 		t.Error("seed should allow duplicate IPs")
 	}
-	if cfg.Storage.PruningStrategy != "everything" {
+	if cfg.Storage.PruningStrategy != PruningEverything {
 		t.Errorf("seed pruning: got %s, want everything", cfg.Storage.PruningStrategy)
 	}
 }
@@ -62,7 +64,7 @@ func TestDefaultForMode_SeedHighConnections(t *testing.T) {
 func TestDefaultForMode_ArchiveKeepsAll(t *testing.T) {
 	cfg := DefaultForMode(ModeArchive)
 
-	if cfg.Storage.PruningStrategy != "nothing" {
+	if cfg.Storage.PruningStrategy != PruningNothing {
 		t.Errorf("archive pruning: got %s, want nothing", cfg.Storage.PruningStrategy)
 	}
 	if cfg.Storage.StateStore.KeepRecent != 0 {
@@ -88,8 +90,8 @@ func TestDefaultForMode_FullEnablesServices(t *testing.T) {
 	if !cfg.EVM.HTTPEnabled {
 		t.Error("full should have EVM HTTP enabled")
 	}
-	if cfg.Network.RPC.ListenAddress != "tcp://0.0.0.0:26657" {
-		t.Errorf("full RPC listen: got %s, want tcp://0.0.0.0:26657", cfg.Network.RPC.ListenAddress)
+	if cfg.Network.RPC.ListenAddress != testRPCAddr {
+		t.Errorf("full RPC listen: got %s, want %s", cfg.Network.RPC.ListenAddress, testRPCAddr)
 	}
 }
 
@@ -122,7 +124,7 @@ func TestValidate_InvalidPruningStrategy(t *testing.T) {
 
 func TestValidate_PruningEverythingWithSnapshots(t *testing.T) {
 	cfg := Default()
-	cfg.Storage.PruningStrategy = "everything"
+	cfg.Storage.PruningStrategy = PruningEverything
 	cfg.Storage.SnapshotInterval = 1000
 	result := Validate(cfg)
 	if !result.HasErrors() {
@@ -192,7 +194,7 @@ func TestWriteReadRoundTrip(t *testing.T) {
 	if loaded.Storage.StateStore.KeepRecent != 50000 {
 		t.Errorf("state_store.keep_recent: got %d, want 50000", loaded.Storage.StateStore.KeepRecent)
 	}
-	if loaded.Network.RPC.ListenAddress != "tcp://0.0.0.0:26657" {
+	if loaded.Network.RPC.ListenAddress != testRPCAddr {
 		t.Errorf("rpc.listen_address: got %q", loaded.Network.RPC.ListenAddress)
 	}
 }
@@ -228,9 +230,9 @@ func TestWriteReadRoundTrip_AllModes(t *testing.T) {
 func TestApplyOverrides(t *testing.T) {
 	cfg := Default()
 	overrides := map[string]string{
-		"evm.http_port":             "9545",
-		"chain.min_gas_prices":      "0.1usei",
-		"storage.pruning":           "custom",
+		"evm.http_port":        "9545",
+		"chain.min_gas_prices": "0.1usei",
+		"storage.pruning":      "custom",
 	}
 
 	if err := ApplyOverrides(cfg, overrides); err != nil {

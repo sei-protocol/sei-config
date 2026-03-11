@@ -37,20 +37,20 @@ func baseDefaults() *SeiConfig {
 
 		Network: NetworkConfig{
 			RPC: RPCConfig{
-				ListenAddress:                "tcp://127.0.0.1:26657",
-				CORSOrigins:                  []string{},
-				CORSMethods:                  []string{"HEAD", "GET", "POST"},
-				CORSHeaders:                  []string{"Origin", "Accept", "Content-Type", "X-Requested-With", "X-Server-Time"},
-				Unsafe:                       false,
-				MaxOpenConnections:           900,
-				MaxSubscriptionClients:       100,
-				MaxSubscriptionsPerClient:    5,
-				EventLogWindowSize:           Dur(30 * time.Second),
-				TimeoutBroadcastTxCommit:     Dur(10 * time.Second),
-				MaxBodyBytes:                 1_000_000,
-				MaxHeaderBytes:               1 << 20,
-				LagThreshold:                 300,
-				TimeoutRead:                  Dur(10 * time.Second),
+				ListenAddress:             "tcp://127.0.0.1:26657",
+				CORSOrigins:               []string{},
+				CORSMethods:               []string{"HEAD", "GET", "POST"},
+				CORSHeaders:               []string{"Origin", "Accept", "Content-Type", "X-Requested-With", "X-Server-Time"},
+				Unsafe:                    false,
+				MaxOpenConnections:        900,
+				MaxSubscriptionClients:    100,
+				MaxSubscriptionsPerClient: 5,
+				EventLogWindowSize:        Dur(30 * time.Second),
+				TimeoutBroadcastTxCommit:  Dur(10 * time.Second),
+				MaxBodyBytes:              1_000_000,
+				MaxHeaderBytes:            1 << 20,
+				LagThreshold:              300,
+				TimeoutRead:               Dur(10 * time.Second),
 			},
 			P2P: P2PConfig{
 				ListenAddress:                 "tcp://127.0.0.1:26656",
@@ -106,13 +106,13 @@ func baseDefaults() *SeiConfig {
 		},
 
 		Storage: StorageConfig{
-			DBBackend:          "goleveldb",
-			DBPath:             "data",
-			PruningStrategy:    "nothing",
-			PruningKeepRecent:  "0",
-			PruningKeepEvery:   "0",
-			PruningInterval:    "0",
-			SnapshotKeepRecent: 2,
+			DBBackend:           "goleveldb",
+			DBPath:              "data",
+			PruningStrategy:     PruningNothing,
+			PruningKeepRecent:   "0",
+			PruningKeepEvery:    "0",
+			PruningInterval:     "0",
+			SnapshotKeepRecent:  2,
 			IAVLDisableFastNode: true,
 			StateCommit: StateCommitConfig{
 				Enable:    true,
@@ -268,7 +268,7 @@ func applySeedOverrides(cfg *SeiConfig) {
 	cfg.API.GRPC.Enable = false
 	cfg.API.GRPCWeb.Enable = false
 	cfg.Storage.StateStore.Enable = false
-	cfg.Storage.PruningStrategy = "everything"
+	cfg.Storage.PruningStrategy = PruningEverything
 
 	cfg.EVM.HTTPEnabled = false
 	cfg.EVM.WSEnabled = false
@@ -293,7 +293,7 @@ func applyFullOverrides(cfg *SeiConfig) {
 func applyArchiveOverrides(cfg *SeiConfig) {
 	applyFullOverrides(cfg)
 
-	cfg.Storage.PruningStrategy = "nothing"
+	cfg.Storage.PruningStrategy = PruningNothing
 	cfg.Storage.StateStore.KeepRecent = 0
 	cfg.Chain.MinRetainBlocks = 0
 	cfg.EVM.MaxTraceLookbackBlocks = -1

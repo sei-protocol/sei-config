@@ -10,6 +10,14 @@ import "runtime"
 // CurrentVersion is the config schema version produced by this library.
 const CurrentVersion = 1
 
+// Pruning strategy constants.
+const (
+	PruningDefault    = "default"
+	PruningNothing    = "nothing"
+	PruningEverything = "everything"
+	PruningCustom     = "custom"
+)
+
 // SeiConfig is the unified configuration for a Sei node, encompassing all
 // settings previously split across config.toml (Tendermint) and app.toml
 // (Cosmos SDK + Sei extensions).
@@ -90,25 +98,25 @@ type RPCConfig struct {
 	TLSCertFile string `toml:"tls_cert_file"`
 	TLSKeyFile  string `toml:"tls_key_file"`
 
-	PprofListenAddress string `toml:"pprof_listen_address"`
-	LagThreshold       int64  `toml:"lag_threshold"`
+	PprofListenAddress string   `toml:"pprof_listen_address"`
+	LagThreshold       int64    `toml:"lag_threshold"`
 	TimeoutRead        Duration `toml:"timeout_read"`
 }
 
 type P2PConfig struct {
-	ListenAddress  string `toml:"listen_address"`
+	ListenAddress   string `toml:"listen_address"`
 	ExternalAddress string `toml:"external_address"`
-	BootstrapPeers string `toml:"bootstrap_peers"`
+	BootstrapPeers  string `toml:"bootstrap_peers"`
 	PersistentPeers string `toml:"persistent_peers"`
 	BlockSyncPeers  string `toml:"blocksync_peers"`
 
-	UPNP                         bool   `toml:"upnp"`
-	MaxConnections               uint16 `toml:"max_connections"`
+	UPNP                          bool   `toml:"upnp"`
+	MaxConnections                uint16 `toml:"max_connections"`
 	MaxIncomingConnectionAttempts uint   `toml:"max_incoming_connection_attempts"`
-	PexReactor                   bool   `toml:"pex"`
-	PrivatePeerIDs               string `toml:"private_peer_ids"`
-	AllowDuplicateIP             bool   `toml:"allow_duplicate_ip"`
-	UnconditionalPeerIDs         string `toml:"unconditional_peer_ids"`
+	PexReactor                    bool   `toml:"pex"`
+	PrivatePeerIDs                string `toml:"private_peer_ids"`
+	AllowDuplicateIP              bool   `toml:"allow_duplicate_ip"`
+	UnconditionalPeerIDs          string `toml:"unconditional_peer_ids"`
 
 	FlushThrottleTimeout    Duration `toml:"flush_throttle_timeout"`
 	MaxPacketMsgPayloadSize int      `toml:"max_packet_msg_payload_size"`
@@ -163,10 +171,10 @@ type MempoolConfig struct {
 	CheckTxErrorBlacklistEnabled bool `toml:"check_tx_error_blacklist_enabled"`
 	CheckTxErrorThreshold        int  `toml:"check_tx_error_threshold"`
 
-	PendingSize        int      `toml:"pending_size"`
-	MaxPendingTxsBytes int64    `toml:"max_pending_txs_bytes"`
-	PendingTTLDuration Duration `toml:"pending_ttl_duration"`
-	PendingTTLNumBlocks int64   `toml:"pending_ttl_num_blocks"`
+	PendingSize         int      `toml:"pending_size"`
+	MaxPendingTxsBytes  int64    `toml:"max_pending_txs_bytes"`
+	PendingTTLDuration  Duration `toml:"pending_ttl_duration"`
+	PendingTTLNumBlocks int64    `toml:"pending_ttl_num_blocks"`
 
 	RemoveExpiredTxsFromQueue bool    `toml:"remove_expired_txs_from_queue"`
 	DropPriorityThreshold     float64 `toml:"drop_priority_threshold"`
@@ -179,8 +187,8 @@ type MempoolConfig struct {
 // ---------------------------------------------------------------------------
 
 type StateSyncConfig struct {
-	Enable bool     `toml:"enable"`
-	UseP2P bool     `toml:"use_p2p"`
+	Enable     bool     `toml:"enable"`
+	UseP2P     bool     `toml:"use_p2p"`
 	RPCServers []string `toml:"rpc_servers"`
 
 	TrustHeight int64    `toml:"trust_height"`
@@ -264,7 +272,7 @@ type StateStoreConfig struct {
 
 type TxIndexConfig struct {
 	Indexer  []string `toml:"indexer"`
-	PsqlConn string  `toml:"psql_conn"`
+	PsqlConn string   `toml:"psql_conn"`
 }
 
 // ---------------------------------------------------------------------------
@@ -288,7 +296,7 @@ type EVMConfig struct {
 	CORSOrigins string `toml:"cors_origins"`
 	WSOrigins   string `toml:"ws_origins"`
 
-	FilterTimeout Duration `toml:"filter_timeout"`
+	FilterTimeout  Duration `toml:"filter_timeout"`
 	CheckTxTimeout Duration `toml:"checktx_timeout"`
 
 	MaxTxPoolTxs uint64 `toml:"max_tx_pool_txs"`
@@ -301,9 +309,9 @@ type EVMConfig struct {
 	MaxSubscriptionsNewHead uint64 `toml:"max_subscriptions_new_head"`
 	EnableTestAPI           bool   `toml:"enable_test_api"`
 
-	MaxConcurrentTraceCalls      uint64 `toml:"max_concurrent_trace_calls"`
-	MaxConcurrentSimulationCalls int    `toml:"max_concurrent_simulation_calls"`
-	MaxTraceLookbackBlocks       int64  `toml:"max_trace_lookback_blocks"`
+	MaxConcurrentTraceCalls      uint64   `toml:"max_concurrent_trace_calls"`
+	MaxConcurrentSimulationCalls int      `toml:"max_concurrent_simulation_calls"`
+	MaxTraceLookbackBlocks       int64    `toml:"max_trace_lookback_blocks"`
 	TraceTimeout                 Duration `toml:"trace_timeout"`
 
 	RPCStatsInterval Duration `toml:"rpc_stats_interval"`

@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	envPrefix     = "SEI_"
-	legacyPrefix  = "SEID_"
+	envPrefix    = "SEI_"
+	legacyPrefix = "SEID_"
 )
 
 // ResolveEnv applies environment variable overrides to cfg using the
@@ -56,9 +56,9 @@ func ResolveEnv(cfg *SeiConfig) []string {
 
 // buildEnvMap returns a mapping from env var suffix (without prefix) to the
 // struct field path. For example, "CHAIN_MIN_GAS_PRICES" -> "Chain.MinGasPrices".
-func buildEnvMap(cfg *SeiConfig) map[string]string {
+func buildEnvMap(_ *SeiConfig) map[string]string {
 	result := make(map[string]string)
-	buildEnvMapRecursive(reflect.TypeOf(*cfg), "", "", result)
+	buildEnvMapRecursive(reflect.TypeFor[SeiConfig](), "", "", result)
 	return result
 }
 
@@ -85,7 +85,7 @@ func buildEnvMapRecursive(t reflect.Type, envPrefix, fieldPrefix string, result 
 		}
 
 		ft := field.Type
-		if ft.Kind() == reflect.Struct && ft != reflect.TypeOf(Duration{}) {
+		if ft.Kind() == reflect.Struct && ft != reflect.TypeFor[Duration]() {
 			buildEnvMapRecursive(ft, envKey, fieldPath, result)
 		} else {
 			result[envKey] = fieldPath
@@ -119,7 +119,7 @@ func setFieldByPath(cfg *SeiConfig, path string, value string) error {
 }
 
 func setReflectValue(v reflect.Value, s string) error {
-	if v.Type() == reflect.TypeOf(Duration{}) {
+	if v.Type() == reflect.TypeFor[Duration]() {
 		var d Duration
 		if err := d.UnmarshalText([]byte(s)); err != nil {
 			return err

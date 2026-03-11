@@ -35,9 +35,9 @@ type legacyTendermintConfig struct {
 
 type legacyRPC struct {
 	ListenAddress                string   `toml:"laddr"`
-	CORSAllowedOrigins          []string `toml:"cors-allowed-origins"`
-	CORSAllowedMethods          []string `toml:"cors-allowed-methods"`
-	CORSAllowedHeaders          []string `toml:"cors-allowed-headers"`
+	CORSAllowedOrigins           []string `toml:"cors-allowed-origins"`
+	CORSAllowedMethods           []string `toml:"cors-allowed-methods"`
+	CORSAllowedHeaders           []string `toml:"cors-allowed-headers"`
 	Unsafe                       bool     `toml:"unsafe"`
 	MaxOpenConnections           int      `toml:"max-open-connections"`
 	MaxSubscriptionClients       int      `toml:"max-subscription-clients"`
@@ -122,19 +122,19 @@ type legacyStateSync struct {
 }
 
 type legacyConsensus struct {
-	WALPath                               string   `toml:"wal-file"`
-	CreateEmptyBlocks                     bool     `toml:"create-empty-blocks"`
-	CreateEmptyBlocksInterval             Duration `toml:"create-empty-blocks-interval"`
-	GossipTransactionKeyOnly              bool     `toml:"gossip-tx-key-only"`
-	PeerGossipSleepDuration               Duration `toml:"peer-gossip-sleep-duration"`
-	PeerQueryMaj23SleepDuration           Duration `toml:"peer-query-maj23-sleep-duration"`
-	DoubleSignCheckHeight                 int64    `toml:"double-sign-check-height"`
-	UnsafeProposeTimeoutOverride          Duration `toml:"unsafe-propose-timeout-override"`
-	UnsafeProposeTimeoutDeltaOverride     Duration `toml:"unsafe-propose-timeout-delta-override"`
-	UnsafeVoteTimeoutOverride             Duration `toml:"unsafe-vote-timeout-override"`
-	UnsafeVoteTimeoutDeltaOverride        Duration `toml:"unsafe-vote-timeout-delta-override"`
-	UnsafeCommitTimeoutOverride           Duration `toml:"unsafe-commit-timeout-override"`
-	UnsafeBypassCommitTimeoutOverride     *bool    `toml:"unsafe-bypass-commit-timeout-override"`
+	WALPath                           string   `toml:"wal-file"`
+	CreateEmptyBlocks                 bool     `toml:"create-empty-blocks"`
+	CreateEmptyBlocksInterval         Duration `toml:"create-empty-blocks-interval"`
+	GossipTransactionKeyOnly          bool     `toml:"gossip-tx-key-only"`
+	PeerGossipSleepDuration           Duration `toml:"peer-gossip-sleep-duration"`
+	PeerQueryMaj23SleepDuration       Duration `toml:"peer-query-maj23-sleep-duration"`
+	DoubleSignCheckHeight             int64    `toml:"double-sign-check-height"`
+	UnsafeProposeTimeoutOverride      Duration `toml:"unsafe-propose-timeout-override"`
+	UnsafeProposeTimeoutDeltaOverride Duration `toml:"unsafe-propose-timeout-delta-override"`
+	UnsafeVoteTimeoutOverride         Duration `toml:"unsafe-vote-timeout-override"`
+	UnsafeVoteTimeoutDeltaOverride    Duration `toml:"unsafe-vote-timeout-delta-override"`
+	UnsafeCommitTimeoutOverride       Duration `toml:"unsafe-commit-timeout-override"`
+	UnsafeBypassCommitTimeoutOverride *bool    `toml:"unsafe-bypass-commit-timeout-override"`
 }
 
 type legacyTxIndex struct {
@@ -171,36 +171,36 @@ type legacySelfRemediation struct {
 // ---------------------------------------------------------------------------
 
 type legacyAppConfig struct {
-	MinGasPrices       string   `toml:"minimum-gas-prices"`
-	Pruning            string   `toml:"pruning"`
-	PruningKeepRecent  string   `toml:"pruning-keep-recent"`
-	PruningKeepEvery   string   `toml:"pruning-keep-every"`
-	PruningInterval    string   `toml:"pruning-interval"`
-	HaltHeight         uint64   `toml:"halt-height"`
-	HaltTime           uint64   `toml:"halt-time"`
-	MinRetainBlocks    uint64   `toml:"min-retain-blocks"`
-	InterBlockCache    bool     `toml:"inter-block-cache"`
-	IndexEvents        []string `toml:"index-events"`
-	IAVLDisableFastNode bool    `toml:"iavl-disable-fastnode"`
-	CompactionInterval uint64   `toml:"compaction-interval"`
-	ConcurrencyWorkers int      `toml:"concurrency-workers"`
-	OccEnabled         bool     `toml:"occ-enabled"`
+	MinGasPrices        string   `toml:"minimum-gas-prices"`
+	Pruning             string   `toml:"pruning"`
+	PruningKeepRecent   string   `toml:"pruning-keep-recent"`
+	PruningKeepEvery    string   `toml:"pruning-keep-every"`
+	PruningInterval     string   `toml:"pruning-interval"`
+	HaltHeight          uint64   `toml:"halt-height"`
+	HaltTime            uint64   `toml:"halt-time"`
+	MinRetainBlocks     uint64   `toml:"min-retain-blocks"`
+	InterBlockCache     bool     `toml:"inter-block-cache"`
+	IndexEvents         []string `toml:"index-events"`
+	IAVLDisableFastNode bool     `toml:"iavl-disable-fastnode"`
+	CompactionInterval  uint64   `toml:"compaction-interval"`
+	ConcurrencyWorkers  int      `toml:"concurrency-workers"`
+	OccEnabled          bool     `toml:"occ-enabled"`
 
-	Telemetry   legacyTelemetry   `toml:"telemetry"`
-	API         legacyAPI         `toml:"api"`
-	GRPC        legacyGRPC        `toml:"grpc"`
-	GRPCWeb     legacyGRPCWeb     `toml:"grpc-web"`
-	StateSync   legacyAppStateSync `toml:"state-sync"`
-	StateCommit legacyStateCommit `toml:"state-commit"`
-	StateStore  legacyStateStore  `toml:"state-store"`
-	EVM         legacyEVM         `toml:"evm"`
-	WASM        legacyWASM        `toml:"wasm"`
-	GigaExecutor legacyGigaExecutor `toml:"giga_executor"`
-	ETHReplay   legacyETHReplay   `toml:"eth_replay"`
-	ETHBlockTest legacyETHBlockTest `toml:"eth_block_test"`
-	EVMQuery    legacyEVMQuery    `toml:"evm_query"`
+	Telemetry       legacyTelemetry       `toml:"telemetry"`
+	API             legacyAPI             `toml:"api"`
+	GRPC            legacyGRPC            `toml:"grpc"`
+	GRPCWeb         legacyGRPCWeb         `toml:"grpc-web"`
+	StateSync       legacyAppStateSync    `toml:"state-sync"`
+	StateCommit     legacyStateCommit     `toml:"state-commit"`
+	StateStore      legacyStateStore      `toml:"state-store"`
+	EVM             legacyEVM             `toml:"evm"`
+	WASM            legacyWASM            `toml:"wasm"`
+	GigaExecutor    legacyGigaExecutor    `toml:"giga_executor"`
+	ETHReplay       legacyETHReplay       `toml:"eth_replay"`
+	ETHBlockTest    legacyETHBlockTest    `toml:"eth_block_test"`
+	EVMQuery        legacyEVMQuery        `toml:"evm_query"`
 	LightInvariance legacyLightInvariance `toml:"light_invariance"`
-	Genesis     legacyGenesis     `toml:"genesis"`
+	Genesis         legacyGenesis         `toml:"genesis"`
 }
 
 type legacyTelemetry struct {
@@ -360,9 +360,9 @@ func (cfg *SeiConfig) toLegacyTendermint() legacyTendermintConfig {
 
 		RPC: legacyRPC{
 			ListenAddress:                cfg.Network.RPC.ListenAddress,
-			CORSAllowedOrigins:          cfg.Network.RPC.CORSOrigins,
-			CORSAllowedMethods:          cfg.Network.RPC.CORSMethods,
-			CORSAllowedHeaders:          cfg.Network.RPC.CORSHeaders,
+			CORSAllowedOrigins:           cfg.Network.RPC.CORSOrigins,
+			CORSAllowedMethods:           cfg.Network.RPC.CORSMethods,
+			CORSAllowedHeaders:           cfg.Network.RPC.CORSHeaders,
 			Unsafe:                       cfg.Network.RPC.Unsafe,
 			MaxOpenConnections:           cfg.Network.RPC.MaxOpenConnections,
 			MaxSubscriptionClients:       cfg.Network.RPC.MaxSubscriptionClients,
@@ -716,19 +716,19 @@ func fromLegacy(tm legacyTendermintConfig, app legacyAppConfig) *SeiConfig {
 		},
 
 		Consensus: ConsensusConfig{
-			WALPath:                               tm.Consensus.WALPath,
-			CreateEmptyBlocks:                     tm.Consensus.CreateEmptyBlocks,
-			CreateEmptyBlocksInterval:             tm.Consensus.CreateEmptyBlocksInterval,
-			GossipTransactionKeyOnly:              tm.Consensus.GossipTransactionKeyOnly,
-			PeerGossipSleepDuration:               tm.Consensus.PeerGossipSleepDuration,
-			PeerQueryMaj23SleepDuration:           tm.Consensus.PeerQueryMaj23SleepDuration,
-			DoubleSignCheckHeight:                 tm.Consensus.DoubleSignCheckHeight,
-			UnsafeProposeTimeoutOverride:          tm.Consensus.UnsafeProposeTimeoutOverride,
-			UnsafeProposeTimeoutDeltaOverride:     tm.Consensus.UnsafeProposeTimeoutDeltaOverride,
-			UnsafeVoteTimeoutOverride:             tm.Consensus.UnsafeVoteTimeoutOverride,
-			UnsafeVoteTimeoutDeltaOverride:        tm.Consensus.UnsafeVoteTimeoutDeltaOverride,
-			UnsafeCommitTimeoutOverride:           tm.Consensus.UnsafeCommitTimeoutOverride,
-			UnsafeBypassCommitTimeoutOverride:     tm.Consensus.UnsafeBypassCommitTimeoutOverride,
+			WALPath:                           tm.Consensus.WALPath,
+			CreateEmptyBlocks:                 tm.Consensus.CreateEmptyBlocks,
+			CreateEmptyBlocksInterval:         tm.Consensus.CreateEmptyBlocksInterval,
+			GossipTransactionKeyOnly:          tm.Consensus.GossipTransactionKeyOnly,
+			PeerGossipSleepDuration:           tm.Consensus.PeerGossipSleepDuration,
+			PeerQueryMaj23SleepDuration:       tm.Consensus.PeerQueryMaj23SleepDuration,
+			DoubleSignCheckHeight:             tm.Consensus.DoubleSignCheckHeight,
+			UnsafeProposeTimeoutOverride:      tm.Consensus.UnsafeProposeTimeoutOverride,
+			UnsafeProposeTimeoutDeltaOverride: tm.Consensus.UnsafeProposeTimeoutDeltaOverride,
+			UnsafeVoteTimeoutOverride:         tm.Consensus.UnsafeVoteTimeoutOverride,
+			UnsafeVoteTimeoutDeltaOverride:    tm.Consensus.UnsafeVoteTimeoutDeltaOverride,
+			UnsafeCommitTimeoutOverride:       tm.Consensus.UnsafeCommitTimeoutOverride,
+			UnsafeBypassCommitTimeoutOverride: tm.Consensus.UnsafeBypassCommitTimeoutOverride,
 		},
 
 		Mempool: MempoolConfig{
@@ -775,16 +775,16 @@ func fromLegacy(tm legacyTendermintConfig, app legacyAppConfig) *SeiConfig {
 		},
 
 		Storage: StorageConfig{
-			DBBackend:          tm.DBBackend,
-			DBPath:             tm.DBPath,
-			PruningStrategy:    app.Pruning,
-			PruningKeepRecent:  app.PruningKeepRecent,
-			PruningKeepEvery:   app.PruningKeepEvery,
-			PruningInterval:    app.PruningInterval,
-			SnapshotInterval:   app.StateSync.SnapshotInterval,
-			SnapshotKeepRecent: app.StateSync.SnapshotKeepRecent,
-			SnapshotDirectory:  app.StateSync.SnapshotDirectory,
-			CompactionInterval: app.CompactionInterval,
+			DBBackend:           tm.DBBackend,
+			DBPath:              tm.DBPath,
+			PruningStrategy:     app.Pruning,
+			PruningKeepRecent:   app.PruningKeepRecent,
+			PruningKeepEvery:    app.PruningKeepEvery,
+			PruningInterval:     app.PruningInterval,
+			SnapshotInterval:    app.StateSync.SnapshotInterval,
+			SnapshotKeepRecent:  app.StateSync.SnapshotKeepRecent,
+			SnapshotDirectory:   app.StateSync.SnapshotDirectory,
+			CompactionInterval:  app.CompactionInterval,
 			IAVLDisableFastNode: app.IAVLDisableFastNode,
 			StateCommit: StateCommitConfig{
 				Enable:            app.StateCommit.Enable,
