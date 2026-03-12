@@ -79,6 +79,16 @@ type ConfigField struct {
 	// Section is the top-level config section this field belongs to.
 	// Example: "evm", "storage", "chain"
 	Section string
+
+	// SinceVersion is the config schema version in which this field was
+	// introduced. Zero means the field has existed since version 1 (the
+	// initial schema). Used by ValidateIntent to enforce version-aware
+	// required-field checks.
+	SinceVersion int
+
+	// RequiredForModes lists the node modes for which this field must have
+	// a non-zero value. Empty means the field is optional for all modes.
+	RequiredForModes []NodeMode
 }
 
 // Registry holds metadata for every field in SeiConfig. It is built once
@@ -334,6 +344,18 @@ func WithHotReload() FieldOption {
 // WithDeprecated marks the field as deprecated.
 func WithDeprecated() FieldOption {
 	return func(f *ConfigField) { f.Deprecated = true }
+}
+
+// WithSinceVersion records the config schema version in which this field
+// was introduced. Used for version-aware validation.
+func WithSinceVersion(v int) FieldOption {
+	return func(f *ConfigField) { f.SinceVersion = v }
+}
+
+// WithRequiredForModes marks this field as required when the node runs
+// in any of the specified modes.
+func WithRequiredForModes(modes ...NodeMode) FieldOption {
+	return func(f *ConfigField) { f.RequiredForModes = modes }
 }
 
 // Enrich updates a field's metadata by key. Returns false if the key

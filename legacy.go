@@ -201,6 +201,15 @@ type legacyAppConfig struct {
 	EVMQuery        legacyEVMQuery        `toml:"evm_query"`
 	LightInvariance legacyLightInvariance `toml:"light_invariance"`
 	Genesis         legacyGenesis         `toml:"genesis"`
+	SeiMeta         legacySeiMeta         `toml:"sei"`
+}
+
+// legacySeiMeta stores sei-config metadata (mode, version) in app.toml so
+// that unified mode values (archive, rpc, indexer) survive legacy round-trips.
+// Tendermint's config.toml only understands validator/full/seed.
+type legacySeiMeta struct {
+	Mode    string `toml:"mode"`
+	Version int    `toml:"version"`
 }
 
 type legacyTelemetry struct {
@@ -641,17 +650,31 @@ func (cfg *SeiConfig) toLegacyApp() legacyAppConfig {
 			StreamImport:      cfg.Genesis.StreamImport,
 			GenesisStreamFile: cfg.Genesis.GenesisStreamFile,
 		},
+
+		SeiMeta: legacySeiMeta{
+			Mode:    string(cfg.Mode),
+			Version: cfg.Version,
+		},
 	}
 }
 
 func fromLegacy(tm legacyTendermintConfig, app legacyAppConfig) *SeiConfig {
-	mode := NodeMode(tm.Mode)
+	// Prefer the sei metadata section (preserves archive/rpc/indexer) over the
+	// Tendermint mode field (which only supports validator/full/seed).
+	mode := NodeMode(app.SeiMeta.Mode)
 	if !mode.IsValid() {
-		mode = ModeFull
+		mode = NodeMode(tm.Mode)
+		if !mode.IsValid() {
+			mode = ModeFull
+		}
+	}
+	version := app.SeiMeta.Version
+	if version < 1 {
+		version = CurrentVersion
 	}
 
 	return &SeiConfig{
-		Version: CurrentVersion,
+		Version: version,
 		Mode:    mode,
 
 		Chain: ChainConfig{

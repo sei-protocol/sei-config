@@ -17,6 +17,10 @@ Shared Go library providing unified configuration types, mode-aware defaults, va
 | `types.go` | `NodeMode`, `Duration`, `WriteMode`, `ReadMode` |
 | `defaults.go` | `DefaultForMode()` — mode-aware baseline configs |
 | `validate.go` | `Validate()` — structured diagnostics (Error/Warning/Info) |
+| `intent.go` | `ConfigIntent`, `ConfigResult` — intent resolution pipeline for controller/sidecar/CLI |
+| `registry.go` | `ConfigField`, `Registry` — reflection-based field discovery and enrichment |
+| `enrichments.go` | `DefaultEnrichments()` — curated field metadata (descriptions, units, hot-reload) |
+| `migrate.go` | `Migration`, `MigrationRegistry` — versioned config schema migrations |
 | `resolve.go` | `ResolveEnv()` — `SEI_`/`SEID_` env var resolution via reflection |
 | `io.go` | `ReadConfigFromDir()`, `WriteConfigToDir()`, `ApplyOverrides()` |
 | `legacy.go` | Two-file TOML mapping types and `SeiConfig` ↔ legacy conversion |
