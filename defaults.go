@@ -200,6 +200,7 @@ func baseDefaults() *SeiConfig {
 			MaxOpenConnections:      3,
 			Namespace:               "tendermint",
 			PrometheusRetentionTime: 7200,
+			GlobalLabels:            [][]string{},
 		},
 
 		Logging: LogConfig{
