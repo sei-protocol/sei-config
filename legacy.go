@@ -364,6 +364,8 @@ func (cfg *SeiConfig) toLegacyTendermint() legacyTendermintConfig {
 		DBPath:      cfg.Storage.DBPath,
 		LogLevel:    cfg.Logging.Level,
 		LogFormat:   cfg.Logging.Format,
+		Genesis:     "config/genesis.json",
+		NodeKey:     "config/node_key.json",
 		ABCI:        cfg.Chain.ABCI,
 		FilterPeers: cfg.Chain.FilterPeers,
 
