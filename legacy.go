@@ -1,5 +1,7 @@
 package seiconfig
 
+import "strings"
+
 // Legacy types match the existing config.toml (Tendermint) and app.toml
 // (Cosmos SDK + Sei) TOML schemas exactly. These are used during Phase 2
 // for reading/writing the two-file layout and will be removed when the
@@ -103,9 +105,9 @@ type legacyMempool struct {
 }
 
 type legacyStateSync struct {
-	Enable                    bool     `toml:"enable"`
-	UseP2P                    bool     `toml:"use-p2p"`
-	RPCServers                []string `toml:"rpc-servers"`
+	Enable                    bool   `toml:"enable"`
+	UseP2P                    bool   `toml:"use-p2p"`
+	RPCServers                string `toml:"rpc-servers"`
 	TrustHeight               int64    `toml:"trust-height"`
 	TrustHash                 string   `toml:"trust-hash"`
 	TrustPeriod               Duration `toml:"trust-period"`
@@ -441,7 +443,7 @@ func (cfg *SeiConfig) toLegacyTendermint() legacyTendermintConfig {
 		StateSync: legacyStateSync{
 			Enable:                    cfg.StateSync.Enable,
 			UseP2P:                    cfg.StateSync.UseP2P,
-			RPCServers:                cfg.StateSync.RPCServers,
+			RPCServers:                strings.Join(cfg.StateSync.RPCServers, ","),
 			TrustHeight:               cfg.StateSync.TrustHeight,
 			TrustHash:                 cfg.StateSync.TrustHash,
 			TrustPeriod:               cfg.StateSync.TrustPeriod,
@@ -783,7 +785,7 @@ func fromLegacy(tm legacyTendermintConfig, app legacyAppConfig) *SeiConfig {
 		StateSync: StateSyncConfig{
 			Enable:                    tm.StateSync.Enable,
 			UseP2P:                    tm.StateSync.UseP2P,
-			RPCServers:                tm.StateSync.RPCServers,
+			RPCServers:                splitRPCServers(tm.StateSync.RPCServers),
 			TrustHeight:               tm.StateSync.TrustHeight,
 			TrustHash:                 tm.StateSync.TrustHash,
 			TrustPeriod:               tm.StateSync.TrustPeriod,
@@ -966,4 +968,21 @@ func fromLegacy(tm legacyTendermintConfig, app legacyAppConfig) *SeiConfig {
 			GenesisStreamFile: app.Genesis.GenesisStreamFile,
 		},
 	}
+}
+
+// splitRPCServers converts a Tendermint-style comma-separated rpc-servers
+// string into the []string used by SeiConfig. Returns nil for empty input.
+func splitRPCServers(s string) []string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if t := strings.TrimSpace(p); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
 }
