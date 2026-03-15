@@ -1,6 +1,9 @@
 package seiconfig
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 // ConfigIntent declares the desired configuration state for a Sei node.
 // It is the portable contract between the controller, sidecar, and CLI.
@@ -215,14 +218,7 @@ func validateIntentRequiredFields(result *ConfigResult, intent ConfigIntent, reg
 		if len(field.RequiredForModes) == 0 {
 			continue
 		}
-		required := false
-		for _, m := range field.RequiredForModes {
-			if m == intent.Mode {
-				required = true
-				break
-			}
-		}
-		if !required {
+		if !slices.Contains(field.RequiredForModes, intent.Mode) {
 			continue
 		}
 

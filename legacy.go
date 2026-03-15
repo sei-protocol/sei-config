@@ -105,9 +105,9 @@ type legacyMempool struct {
 }
 
 type legacyStateSync struct {
-	Enable                    bool   `toml:"enable"`
-	UseP2P                    bool   `toml:"use-p2p"`
-	RPCServers                string `toml:"rpc-servers"`
+	Enable                    bool     `toml:"enable"`
+	UseP2P                    bool     `toml:"use-p2p"`
+	RPCServers                string   `toml:"rpc-servers"`
 	TrustHeight               int64    `toml:"trust-height"`
 	TrustHash                 string   `toml:"trust-hash"`
 	TrustPeriod               Duration `toml:"trust-period"`
