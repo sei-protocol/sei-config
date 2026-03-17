@@ -207,7 +207,7 @@ type legacyAppConfig struct {
 }
 
 // legacySeiMeta stores sei-config metadata (mode, version) in app.toml so
-// that unified mode values (archive, rpc, indexer) survive legacy round-trips.
+// that unified mode values (archive) survive legacy round-trips.
 // Tendermint's config.toml only understands validator/full/seed.
 type legacySeiMeta struct {
 	Mode    string `toml:"mode"`
@@ -663,8 +663,8 @@ func (cfg *SeiConfig) toLegacyApp() legacyAppConfig {
 }
 
 func fromLegacy(tm legacyTendermintConfig, app legacyAppConfig) *SeiConfig {
-	// Prefer the sei metadata section (preserves archive/rpc/indexer) over the
-	// Tendermint mode field (which only supports validator/full/seed).
+	// Prefer the sei metadata section (preserves archive) over the Tendermint
+	// mode field (which only supports validator/full/seed).
 	mode := NodeMode(app.SeiMeta.Mode)
 	if !mode.IsValid() {
 		mode = NodeMode(tm.Mode)

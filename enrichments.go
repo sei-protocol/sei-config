@@ -12,7 +12,7 @@ func DefaultEnrichments() map[string][]FieldOption {
 			WithDescription("Config schema version. Set by tooling, not operators."),
 		},
 		"mode": {
-			WithDescription("Node operating mode: validator, full, seed, archive, rpc, indexer."),
+			WithDescription("Node operating mode: validator, full, seed, archive."),
 		},
 
 		// ---------------------------------------------------------------

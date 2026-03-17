@@ -13,7 +13,7 @@ import (
 // The controller never calls DefaultForMode, ApplyOverrides, or Validate
 // directly — it just constructs an intent and sends it through.
 type ConfigIntent struct {
-	// Mode is the node's operating role (validator, full, seed, archive, rpc, indexer).
+	// Mode is the node's operating role (validator, full, seed, archive).
 	Mode NodeMode `json:"mode"`
 
 	// Overrides is a flat map of dotted TOML key paths to string values.
@@ -178,7 +178,7 @@ func validateIntentMode(result *ConfigResult, intent ConfigIntent) {
 	}
 	if !intent.Mode.IsValid() {
 		result.addError("mode", fmt.Sprintf(
-			"unknown mode %q; valid modes: validator, full, seed, archive, rpc, indexer", intent.Mode))
+			"unknown mode %q; valid modes: validator, full, seed, archive", intent.Mode))
 	}
 }
 

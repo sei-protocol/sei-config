@@ -112,7 +112,7 @@ func validateMode(r *ValidationResult, cfg *SeiConfig) {
 	}
 	if !cfg.Mode.IsValid() {
 		r.addError("mode", fmt.Sprintf(
-			"unknown mode %q; valid modes: validator, full, seed, archive, rpc, indexer", cfg.Mode))
+			"unknown mode %q; valid modes: validator, full, seed, archive", cfg.Mode))
 	}
 }
 
