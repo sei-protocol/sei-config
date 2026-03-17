@@ -10,7 +10,7 @@ import (
 const testRPCAddr = "tcp://0.0.0.0:26657"
 
 func TestDefaultForMode_AllModesValid(t *testing.T) {
-	modes := []NodeMode{ModeValidator, ModeFull, ModeSeed, ModeArchive, ModeRPC, ModeIndexer}
+	modes := []NodeMode{ModeValidator, ModeFull, ModeSeed, ModeArchive}
 	for _, mode := range modes {
 		cfg := DefaultForMode(mode)
 		if cfg.Mode != mode {
@@ -200,7 +200,7 @@ func TestWriteReadRoundTrip(t *testing.T) {
 }
 
 func TestWriteReadRoundTrip_AllModes(t *testing.T) {
-	modes := []NodeMode{ModeValidator, ModeFull, ModeSeed, ModeArchive, ModeRPC, ModeIndexer}
+	modes := []NodeMode{ModeValidator, ModeFull, ModeSeed, ModeArchive}
 	for _, mode := range modes {
 		t.Run(string(mode), func(t *testing.T) {
 			dir := t.TempDir()
@@ -247,6 +247,146 @@ func TestApplyOverrides(t *testing.T) {
 	}
 	if cfg.Storage.PruningStrategy != "custom" {
 		t.Errorf("storage.pruning: got %q, want %q", cfg.Storage.PruningStrategy, "custom")
+	}
+}
+
+func TestApplyOverrides_Bool(t *testing.T) {
+	cfg := Default()
+	if err := ApplyOverrides(cfg, map[string]string{
+		"network.p2p.allow_duplicate_ip": "true",
+	}); err != nil {
+		t.Fatalf("ApplyOverrides: %v", err)
+	}
+	if !cfg.Network.P2P.AllowDuplicateIP {
+		t.Error("expected AllowDuplicateIP to be true")
+	}
+
+	if err := ApplyOverrides(cfg, map[string]string{
+		"network.p2p.allow_duplicate_ip": "false",
+	}); err != nil {
+		t.Fatalf("ApplyOverrides: %v", err)
+	}
+	if cfg.Network.P2P.AllowDuplicateIP {
+		t.Error("expected AllowDuplicateIP to be false")
+	}
+}
+
+func TestApplyOverrides_Uint(t *testing.T) {
+	cfg := Default()
+	if err := ApplyOverrides(cfg, map[string]string{
+		"chain.halt_height": "999999",
+	}); err != nil {
+		t.Fatalf("ApplyOverrides: %v", err)
+	}
+	if cfg.Chain.HaltHeight != 999999 {
+		t.Errorf("halt_height: got %d, want 999999", cfg.Chain.HaltHeight)
+	}
+}
+
+func TestApplyOverrides_Float(t *testing.T) {
+	cfg := Default()
+	if err := ApplyOverrides(cfg, map[string]string{
+		"mempool.drop_priority_threshold": "0.75",
+	}); err != nil {
+		t.Fatalf("ApplyOverrides: %v", err)
+	}
+	if cfg.Mempool.DropPriorityThreshold != 0.75 {
+		t.Errorf("drop_priority_threshold: got %f, want 0.75", cfg.Mempool.DropPriorityThreshold)
+	}
+}
+
+func TestApplyOverrides_Duration(t *testing.T) {
+	cfg := Default()
+	if err := ApplyOverrides(cfg, map[string]string{
+		"network.rpc.timeout_broadcast_tx_commit": "30s",
+	}); err != nil {
+		t.Fatalf("ApplyOverrides: %v", err)
+	}
+	if cfg.Network.RPC.TimeoutBroadcastTxCommit.Duration != 30*time.Second {
+		t.Errorf("timeout_broadcast_tx_commit: got %v, want 30s",
+			cfg.Network.RPC.TimeoutBroadcastTxCommit.Duration)
+	}
+}
+
+func TestApplyOverrides_Int64(t *testing.T) {
+	cfg := Default()
+	if err := ApplyOverrides(cfg, map[string]string{
+		"state_sync.backfill_blocks": "500",
+	}); err != nil {
+		t.Fatalf("ApplyOverrides: %v", err)
+	}
+	if cfg.StateSync.BackfillBlocks != 500 {
+		t.Errorf("backfill_blocks: got %d, want 500", cfg.StateSync.BackfillBlocks)
+	}
+}
+
+func TestApplyOverrides_UnknownKey(t *testing.T) {
+	cfg := Default()
+	err := ApplyOverrides(cfg, map[string]string{
+		"totally.fake.key": "value",
+	})
+	if err == nil {
+		t.Fatal("expected error for unknown key")
+	}
+}
+
+func TestApplyOverrides_InvalidBool(t *testing.T) {
+	cfg := Default()
+	err := ApplyOverrides(cfg, map[string]string{
+		"network.p2p.allow_duplicate_ip": "maybe",
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid bool value")
+	}
+}
+
+func TestApplyOverrides_InvalidInt(t *testing.T) {
+	cfg := Default()
+	err := ApplyOverrides(cfg, map[string]string{
+		"evm.http_port": "not_a_number",
+	})
+	if err == nil {
+		t.Fatal("expected error for non-numeric int value")
+	}
+}
+
+func TestApplyOverrides_InvalidDuration(t *testing.T) {
+	cfg := Default()
+	err := ApplyOverrides(cfg, map[string]string{
+		"network.rpc.timeout_broadcast_tx_commit": "not_a_duration",
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid duration value")
+	}
+}
+
+func TestApplyOverrides_Uint16Overflow(t *testing.T) {
+	cfg := Default()
+	err := ApplyOverrides(cfg, map[string]string{
+		"network.p2p.max_connections": "70000",
+	})
+	if err == nil {
+		t.Fatal("expected error for uint16 overflow (65535 max)")
+	}
+}
+
+func TestApplyOverrides_Int32Overflow(t *testing.T) {
+	cfg := Default()
+	err := ApplyOverrides(cfg, map[string]string{
+		"state_sync.fetchers": "3000000000",
+	})
+	if err == nil {
+		t.Fatal("expected error for int32 overflow")
+	}
+}
+
+func TestApplyOverrides_NegativeUint(t *testing.T) {
+	cfg := Default()
+	err := ApplyOverrides(cfg, map[string]string{
+		"chain.halt_height": "-1",
+	})
+	if err == nil {
+		t.Fatal("expected error for negative uint value")
 	}
 }
 
@@ -339,8 +479,8 @@ func TestNodeMode_Validity(t *testing.T) {
 		{ModeFull, true},
 		{ModeSeed, true},
 		{ModeArchive, true},
-		{ModeRPC, true},
-		{ModeIndexer, true},
+		{"rpc", false},
+		{"indexer", false},
 		{"bogus", false},
 		{"", false},
 	}
@@ -352,7 +492,7 @@ func TestNodeMode_Validity(t *testing.T) {
 }
 
 func TestNodeMode_IsFullnodeType(t *testing.T) {
-	fullnodeTypes := []NodeMode{ModeFull, ModeArchive, ModeRPC, ModeIndexer}
+	fullnodeTypes := []NodeMode{ModeFull, ModeArchive}
 	for _, m := range fullnodeTypes {
 		if !m.IsFullnodeType() {
 			t.Errorf("%s should be fullnode type", m)

@@ -13,8 +13,6 @@ const (
 	ModeFull      NodeMode = "full"
 	ModeSeed      NodeMode = "seed"
 	ModeArchive   NodeMode = "archive"
-	ModeRPC       NodeMode = "rpc"
-	ModeIndexer   NodeMode = "indexer"
 )
 
 var validModes = map[NodeMode]bool{
@@ -22,8 +20,6 @@ var validModes = map[NodeMode]bool{
 	ModeFull:      true,
 	ModeSeed:      true,
 	ModeArchive:   true,
-	ModeRPC:       true,
-	ModeIndexer:   true,
 }
 
 func (m NodeMode) IsValid() bool {
@@ -32,7 +28,7 @@ func (m NodeMode) IsValid() bool {
 
 func (m NodeMode) IsFullnodeType() bool {
 	switch m {
-	case ModeFull, ModeArchive, ModeRPC, ModeIndexer:
+	case ModeFull, ModeArchive:
 		return true
 	default:
 		return false

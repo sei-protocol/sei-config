@@ -352,9 +352,9 @@ type legacyGenesis struct {
 // ---------------------------------------------------------------------------
 
 func (cfg *SeiConfig) toLegacyTendermint() legacyTendermintConfig {
-	// Tendermint treats "archive" as "full"
+	// Tendermint only understands validator/full/seed; archive maps to full.
 	tmMode := cfg.Mode.String()
-	if tmMode == "archive" || tmMode == "rpc" || tmMode == "indexer" {
+	if tmMode == "archive" {
 		tmMode = "full"
 	}
 
