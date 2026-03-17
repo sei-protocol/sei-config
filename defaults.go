@@ -139,9 +139,9 @@ func baseDefaults() *SeiConfig {
 
 		EVM: EVMConfig{
 			HTTPEnabled:                  true,
-			HTTPPort:                     8545,
+			HTTPPort:                     int(PortEVMHTTP),
 			WSEnabled:                    true,
-			WSPort:                       8546,
+			WSPort:                       int(PortEVMWS),
 			ReadTimeout:                  Dur(30 * time.Second),
 			ReadHeaderTimeout:            Dur(30 * time.Second),
 			WriteTimeout:                 Dur(30 * time.Second),
