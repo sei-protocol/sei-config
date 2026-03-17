@@ -14,6 +14,36 @@ const CurrentVersion = 1
 // creation interval (in blocks) used when snapshot generation is enabled.
 const DefaultSnapshotInterval = 2000
 
+// Well-known default ports for Sei node services and the sidecar.
+const (
+	PortEVMHTTP int32 = 8545
+	PortEVMWS   int32 = 8546
+	PortGRPC    int32 = 9090
+	PortP2P     int32 = 26656
+	PortRPC     int32 = 26657
+	PortMetrics int32 = 26660
+	PortSidecar int32 = 7777
+)
+
+// NodePort pairs a human-readable service name with its default port number.
+type NodePort struct {
+	Name string
+	Port int32
+}
+
+// NodePorts returns the canonical set of ports exposed by a Sei node (seid).
+// The sidecar port is excluded; use PortSidecar directly.
+func NodePorts() []NodePort {
+	return []NodePort{
+		{"evm-rpc", PortEVMHTTP},
+		{"evm-ws", PortEVMWS},
+		{"grpc", PortGRPC},
+		{"p2p", PortP2P},
+		{"rpc", PortRPC},
+		{"metrics", PortMetrics},
+	}
+}
+
 // Pruning strategy constants.
 const (
 	PruningDefault    = "default"
