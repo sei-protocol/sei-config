@@ -5,7 +5,7 @@ import (
 )
 
 func TestValidateIntent_ValidModes(t *testing.T) {
-	modes := []NodeMode{ModeValidator, ModeFull, ModeSeed, ModeArchive, ModeRPC, ModeIndexer}
+	modes := []NodeMode{ModeValidator, ModeFull, ModeSeed, ModeArchive}
 	for _, mode := range modes {
 		result := ValidateIntent(ConfigIntent{Mode: mode})
 		if !result.Valid {
@@ -136,7 +136,7 @@ func TestValidateIntent_ValidOverrideKey(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestResolveIntent_AllModes(t *testing.T) {
-	modes := []NodeMode{ModeValidator, ModeFull, ModeSeed, ModeArchive, ModeRPC, ModeIndexer}
+	modes := []NodeMode{ModeValidator, ModeFull, ModeSeed, ModeArchive}
 	for _, mode := range modes {
 		result, err := ResolveIntent(ConfigIntent{Mode: mode})
 		if err != nil {
@@ -290,17 +290,17 @@ func TestResolveIncrementalIntent_PatchesExistingConfig(t *testing.T) {
 func TestResolveIncrementalIntent_ModeOverride(t *testing.T) {
 	current := DefaultForMode(ModeFull)
 	result, err := ResolveIncrementalIntent(
-		ConfigIntent{Mode: ModeRPC},
+		ConfigIntent{Mode: ModeArchive},
 		current,
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Config.Mode != ModeRPC {
-		t.Errorf("expected mode RPC, got %q", result.Config.Mode)
+	if result.Config.Mode != ModeArchive {
+		t.Errorf("expected mode archive, got %q", result.Config.Mode)
 	}
-	if result.Mode != ModeRPC {
-		t.Errorf("expected result.Mode RPC, got %q", result.Mode)
+	if result.Mode != ModeArchive {
+		t.Errorf("expected result.Mode archive, got %q", result.Mode)
 	}
 }
 
@@ -334,7 +334,7 @@ func TestResolveIncrementalIntent_DoesNotMutateCaller(t *testing.T) {
 
 	_, err := ResolveIncrementalIntent(
 		ConfigIntent{
-			Mode: ModeRPC,
+			Mode: ModeArchive,
 			Overrides: map[string]string{
 				"evm.http_port": "9999",
 			},

@@ -2,6 +2,7 @@ package seiconfig
 
 import (
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -240,10 +241,6 @@ func applyModeOverrides(cfg *SeiConfig, mode NodeMode) {
 		applyFullOverrides(cfg)
 	case ModeArchive:
 		applyArchiveOverrides(cfg)
-	case ModeRPC:
-		applyRPCOverrides(cfg)
-	case ModeIndexer:
-		applyIndexerOverrides(cfg)
 	}
 }
 
@@ -300,12 +297,15 @@ func applyArchiveOverrides(cfg *SeiConfig) {
 	cfg.EVM.MaxTraceLookbackBlocks = -1
 }
 
-func applyRPCOverrides(cfg *SeiConfig) {
-	applyFullOverrides(cfg)
-}
-
-func applyIndexerOverrides(cfg *SeiConfig) {
-	applyArchiveOverrides(cfg)
+// SnapshotGenerationOverrides returns the config overrides needed when a node
+// is configured to produce Tendermint state-sync snapshots. The controller
+// applies these as ConfigIntent.Overrides alongside the mode defaults.
+func SnapshotGenerationOverrides(keepRecent int32) map[string]string {
+	return map[string]string{
+		"storage.pruning":              PruningNothing,
+		"storage.snapshot_interval":    strconv.FormatInt(DefaultSnapshotInterval, 10),
+		"storage.snapshot_keep_recent": strconv.FormatInt(int64(keepRecent), 10),
+	}
 }
 
 func defaultMoniker() string {

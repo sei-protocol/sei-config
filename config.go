@@ -10,6 +10,10 @@ import "runtime"
 // CurrentVersion is the config schema version produced by this library.
 const CurrentVersion = 1
 
+// DefaultSnapshotInterval is the default Tendermint state-sync snapshot
+// creation interval (in blocks) used when snapshot generation is enabled.
+const DefaultSnapshotInterval = 2000
+
 // Pruning strategy constants.
 const (
 	PruningDefault    = "default"

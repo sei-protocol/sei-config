@@ -140,22 +140,31 @@ func setReflectValue(v reflect.Value, s string) error {
 		default:
 			return fmt.Errorf("invalid bool value: %q", s)
 		}
-	case reflect.Int, reflect.Int64:
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		n, err := parseInt64(s)
 		if err != nil {
 			return err
 		}
+		if v.OverflowInt(n) {
+			return fmt.Errorf("value %d overflows %s", n, v.Type())
+		}
 		v.SetInt(n)
-	case reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		n, err := parseUint64(s)
 		if err != nil {
 			return err
 		}
+		if v.OverflowUint(n) {
+			return fmt.Errorf("value %d overflows %s", n, v.Type())
+		}
 		v.SetUint(n)
-	case reflect.Float64:
+	case reflect.Float32, reflect.Float64:
 		n, err := parseFloat64(s)
 		if err != nil {
 			return err
+		}
+		if v.OverflowFloat(n) {
+			return fmt.Errorf("value %g overflows %s", n, v.Type())
 		}
 		v.SetFloat(n)
 	default:
