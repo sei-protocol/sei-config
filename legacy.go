@@ -318,7 +318,7 @@ type legacyWASM struct {
 }
 
 type legacyGigaExecutor struct {
-	Enabled    bool `toml:"giga_enabled"`
+	Enabled    bool `toml:"enabled"`
 	OccEnabled bool `toml:"occ_enabled"`
 }
 
