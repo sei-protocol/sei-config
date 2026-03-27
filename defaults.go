@@ -246,6 +246,8 @@ func applyModeOverrides(cfg *SeiConfig, mode NodeMode) {
 
 func applyValidatorOverrides(cfg *SeiConfig) {
 	cfg.TxIndex.Indexer = []string{"null"}
+	cfg.Network.RPC.ListenAddress = "tcp://0.0.0.0:26657"
+	cfg.Network.P2P.ListenAddress = "tcp://0.0.0.0:26656"
 	cfg.Network.P2P.AllowDuplicateIP = false
 
 	cfg.API.REST.Enable = false
