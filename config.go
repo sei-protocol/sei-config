@@ -19,6 +19,7 @@ const (
 	PortEVMHTTP int32 = 8545
 	PortEVMWS   int32 = 8546
 	PortGRPC    int32 = 9090
+	PortREST    int32 = 1317
 	PortP2P     int32 = 26656
 	PortRPC     int32 = 26657
 	PortMetrics int32 = 26660
@@ -38,9 +39,34 @@ func NodePorts() []NodePort {
 		{"evm-rpc", PortEVMHTTP},
 		{"evm-ws", PortEVMWS},
 		{"grpc", PortGRPC},
+		{"rest", PortREST},
 		{"p2p", PortP2P},
 		{"rpc", PortRPC},
 		{"metrics", PortMetrics},
+	}
+}
+
+// NodePortsForMode returns the ports that are actually served by a node
+// running in the given mode.
+func NodePortsForMode(mode NodeMode) []NodePort {
+	switch mode {
+	case ModeValidator:
+		return []NodePort{
+			{"p2p", PortP2P},
+			{"metrics", PortMetrics},
+		}
+	case ModeFull, ModeArchive:
+		return []NodePort{
+			{"evm-rpc", PortEVMHTTP},
+			{"evm-ws", PortEVMWS},
+			{"grpc", PortGRPC},
+			{"rest", PortREST},
+			{"p2p", PortP2P},
+			{"rpc", PortRPC},
+			{"metrics", PortMetrics},
+		}
+	default:
+		return nil
 	}
 }
 
