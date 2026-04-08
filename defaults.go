@@ -309,24 +309,20 @@ func applyArchiveOverrides(cfg *SeiConfig) {
 	cfg.Storage.StateCommit.MemIAVL.SnapshotMinTimeInterval = 20000
 }
 
-// SnapshotGenerationOverrides returns the config overrides needed when a node
-// is configured to produce Tendermint state-sync snapshots. The controller
-// applies these as ConfigIntent.Overrides alongside the mode defaults.
+// SnapshotGenerationOverrides returns overrides for full-mode nodes that
+// generate CometBFT state-sync snapshots. Includes snapshot creation,
+// tighter pruning than the full-node default, and elevated P2P capacity
+// for serving snapshot chunks to peers.
 func SnapshotGenerationOverrides(keepRecent int32) map[string]string {
 	return map[string]string{
-		"storage.pruning":              PruningNothing,
-		"storage.snapshot_interval":    strconv.FormatInt(DefaultSnapshotInterval, 10),
-		"storage.snapshot_keep_recent": strconv.FormatInt(int64(keepRecent), 10),
-	}
-}
-
-// StateSyncerOverrides returns the config overrides for nodes acting as
-// state-sync snapshot servers.
-func StateSyncerOverrides() map[string]string {
-	return map[string]string{
-		KeyP2PMaxConnections: "500",
-		KeyP2PSendRate:       "20971520",
-		KeyP2PRecvRate:       "20971520",
+		KeySnapshotInterval:   strconv.FormatInt(DefaultSnapshotInterval, 10),
+		KeySnapshotKeepRecent: strconv.FormatInt(int64(keepRecent), 10),
+		KeyPruningKeepRecent:  "50000",
+		KeyPruningKeepEvery:   "0",
+		KeyMinRetainBlocks:    "50000",
+		KeyP2PMaxConnections:  "500",
+		KeyP2PSendRate:        "20971520",
+		KeyP2PRecvRate:        "20971520",
 	}
 }
 

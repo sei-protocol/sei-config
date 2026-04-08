@@ -70,8 +70,14 @@ func NodePortsForMode(mode NodeMode) []NodePort {
 	}
 }
 
-// Override key constants for P2P configuration fields.
+// Override key constants for the unified config schema.
 const (
+	KeyPruningKeepRecent  = "storage.pruning_keep_recent"
+	KeyPruningKeepEvery   = "storage.pruning_keep_every"
+	KeySnapshotInterval   = "storage.snapshot_interval"
+	KeySnapshotKeepRecent = "storage.snapshot_keep_recent"
+	KeyMinRetainBlocks    = "chain.min_retain_blocks"
+
 	KeyP2PExternalAddress = "network.p2p.external_address"
 	KeyP2PMaxConnections  = "network.p2p.max_connections"
 	KeyP2PSendRate        = "network.p2p.send_rate"
