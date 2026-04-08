@@ -310,6 +310,16 @@ func SnapshotGenerationOverrides(keepRecent int32) map[string]string {
 	}
 }
 
+// StateSyncerOverrides returns the config overrides for nodes acting as
+// state-sync snapshot servers.
+func StateSyncerOverrides() map[string]string {
+	return map[string]string{
+		KeyP2PMaxConnections: "500",
+		KeyP2PSendRate:       "20971520",
+		KeyP2PRecvRate:       "20971520",
+	}
+}
+
 func defaultMoniker() string {
 	name, err := os.Hostname()
 	if err != nil {

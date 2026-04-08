@@ -70,6 +70,14 @@ func NodePortsForMode(mode NodeMode) []NodePort {
 	}
 }
 
+// Override key constants for P2P configuration fields.
+const (
+	KeyP2PExternalAddress = "network.p2p.external_address"
+	KeyP2PMaxConnections  = "network.p2p.max_connections"
+	KeyP2PSendRate        = "network.p2p.send_rate"
+	KeyP2PRecvRate        = "network.p2p.recv_rate"
+)
+
 // Pruning strategy constants.
 const (
 	PruningDefault    = "default"
