@@ -279,6 +279,12 @@ func applyFullOverrides(cfg *SeiConfig) {
 	cfg.Network.RPC.ListenAddress = "tcp://0.0.0.0:26657"
 	cfg.Network.P2P.ListenAddress = "tcp://0.0.0.0:26656"
 
+	cfg.Chain.ConcurrencyWorkers = 500
+	cfg.Storage.PruningStrategy = PruningCustom
+	cfg.Storage.PruningKeepRecent = "86400"
+	cfg.Storage.PruningKeepEvery = "500"
+	cfg.Storage.PruningInterval = "10"
+
 	cfg.API.REST.Enable = true
 	cfg.API.GRPC.Enable = true
 	cfg.API.GRPCWeb.Enable = true
@@ -297,6 +303,10 @@ func applyArchiveOverrides(cfg *SeiConfig) {
 	cfg.Storage.StateStore.KeepRecent = 0
 	cfg.Chain.MinRetainBlocks = 0
 	cfg.EVM.MaxTraceLookbackBlocks = -1
+
+	cfg.Storage.StateCommit.AsyncCommitBuffer = 100
+	cfg.Storage.StateCommit.MemIAVL.SnapshotKeepRecent = 1
+	cfg.Storage.StateCommit.MemIAVL.SnapshotMinTimeInterval = 20000
 }
 
 // SnapshotGenerationOverrides returns the config overrides needed when a node
