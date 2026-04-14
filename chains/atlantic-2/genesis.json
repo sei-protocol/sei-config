@@ -26284,7 +26284,15 @@
       "aggregate_exchange_rate_votes": [],
       "price_snapshots": []
     },
-    "params": null,
+    "params": {
+      "feesParams": {
+        "globalMinimumGasPrices": [{"denom": "usei", "amount": "0.020000000000000000"}]
+      },
+      "cosmosGasParams": {
+        "cosmosGasMultiplierNumerator": "1",
+        "cosmosGasMultiplierDenominator": "1"
+      }
+    },
     "slashing": {
       "params": {
         "signed_blocks_window": "10000",

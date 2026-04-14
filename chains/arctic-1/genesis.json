@@ -28461,8 +28461,12 @@
       "price_snapshots": []
     },
     "params": {
-      "fees_params": {
-        "global_minimum_gas_prices": "0.400000000000000000"
+      "feesParams": {
+        "globalMinimumGasPrices": [{"denom": "usei", "amount": "0.020000000000000000"}]
+      },
+      "cosmosGasParams": {
+        "cosmosGasMultiplierNumerator": "1",
+        "cosmosGasMultiplierDenominator": "1"
       }
     },
     "slashing": {
