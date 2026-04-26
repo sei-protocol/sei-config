@@ -26,7 +26,7 @@ For comparison, **the existing `--halt-height` operator path is already graceful
 
 **Tier 1 — seid (dataplane primitive).** Each halt cause has:
 - A distinct **exit code** in the range 70–79.
-- A structured **`HaltIntent` value** populated before exit, exposed via a discrete `/halt_intent` route on the existing sei-tendermint RPC server (port 26657).
+- A structured **`HaltIntent` value** populated before exit, exposed as an optional `halt_intent` field on the existing `/status` response served by the sei-tendermint RPC server (port 26657).
 
 The HaltIntent shape is owned by sei-config. Every consumer — sidecar, systemd unit, controller, human curl — reads the same primitive. This keeps tier 1 universal and predictable.
 
@@ -36,50 +36,50 @@ The two-tier split is what reconciles "synergistic with the sidecar" with "doesn
 
 ---
 
-## ⚠️ Decision: dedicated `/halt_intent` route, NOT extending `/status`
+## ⚠️ Decision: extend `/status` with a `halt_intent` field, not a dedicated route
 
-This is the most contested call in the design. Reviewers will land here first — calling it out explicitly with the case for and against. Push back hard on this section if you disagree.
+This is the most contested call in the design. The recommendation flipped during PR review after an empirical audit invalidated the original premise. Reviewers should land here first.
 
 ### TL;DR
 
-Add a **new dedicated route `/halt_intent`** on the sei-tendermint RPC server. Do **not** extend the existing `/status` response to include a `halt_intent` field.
+Add an **optional `halt_intent` field** to the existing `/status` response on the sei-tendermint RPC server. The field is omitted when the node is healthy and populated with a `HaltIntent` value when a graceful halt is in progress. **Do not** add a dedicated `/halt_intent` route.
 
-### Why this is non-obvious
-
-`/status` is the idiomatic place a control-plane fetches a dataplane process's state. Most reviewers' first instinct — and the original direction of this design — was to extend `/status` with an optional `halt_intent` field that's null when healthy. The "new endpoint" feels like a smell, especially since both routes live on a surface (Tendermint RPC) that we want to deprecate eventually.
-
-### The case for extending `/status` (rejected)
+### The case for extending `/status`
 
 1. **Idiomatic.** Control-plane→dataplane state polling lives on `/status`. One endpoint, one response, one parse.
-2. **Discoverability.** Sidecars and operators already poll `/status`; a new route is one more thing to know.
-3. **No new surface to deprecate later.** If we eventually retire Tendermint RPC entirely, every additional route there is a chip we have to migrate.
-4. **Upstream-merge tax** *(does not apply for Sei — see below)*. In a typical Cosmos fork, modifying upstream-defined types like `ResultStatus` means re-merging on every CometBFT minor release. **For Sei this argument is moot:** Sei never merges sei-tendermint changes back to upstream; the fork is fully owned. We can modify `ResultStatus` freely.
+2. **Discoverability.** Sidecars and operators already poll `/status`; a new route is one more thing to know about and version-gate.
+3. **Minimizes surface area on a doomed endpoint.** Sei intends to deprecate Tendermint RPC eventually. Every additional route there is a chip that has to be migrated. Extending an existing field set is no migration cost beyond what the route itself already costs.
+4. **Additive JSON is non-breaking.** Adding an optional field to a JSON response is non-breaking unless consumers do strict-schema validation (`additionalProperties: false`), which is rare. Per the audit (below), no Sei consumer does this.
+5. **Upstream-merge tax does not apply.** In a typical Cosmos fork, modifying `ResultStatus` would mean re-merging on every CometBFT minor release. Sei never merges sei-tendermint changes back upstream, so this is not a cost.
 
-### Why we still recommend a dedicated route (failure-isolation)
+### What we initially argued and why it didn't hold
 
-Of the arguments above, only #4 was decisive in the original analysis, and Sei's never-merge-upstream posture neutralizes it. So why still go with a dedicated route?
+The first draft of this design recommended a dedicated `/halt_intent` route on **failure-domain isolation** grounds: `/status` is "the most heavily polled endpoint in the entire Cosmos universe — Prometheus exporters, Tenderduty, validator dashboards, block explorers, load-balancer health checks." Coupling halt-intent population to `/status` would risk a halt-intent bug taking down sync-status visibility for the entire monitoring fleet during the upgrade window.
 
-**Failure-domain isolation.** This is the strongest single argument and the one most reviewers don't anticipate.
+That argument was load-bearing on a premise that does not hold for Sei's actual deployment stack.
 
-`/status` is the most heavily polled endpoint in the entire Cosmos universe — Prometheus exporters, Tenderduty, validator dashboards, block explorers, load-balancer health checks, the sei-k8s-controller's existing health probes. Coupling halt-intent population to `/status`'s critical path means any bug in the halt-intent reader — lock contention with the consensus shutdown path, a nil-deref on `PlanName`, a serialization edge case — takes down sync-status visibility for the entire monitoring fleet.
+### What the audit found
 
-Crucially, that breakage would happen **exactly during the upgrade window** when operators most need `/status` to be boring and reliable. We would be introducing a new failure mode at the worst possible time.
+A thorough audit of `/status` consumers in the workspace (`sei-chain` + vendored `sei-cosmos` + `sei-tendermint`) returned only:
 
-A dedicated `/halt_intent` handler with its own mutex and its own `defer recover()` keeps the blast radius scoped: a bug in halt-intent code can break `/halt_intent` only, and `/status` keeps reporting sync state to everyone polling it.
+- `sei-tendermint/rpc/test/helpers.go:37` — `waitForRPC()` test bootstrap
+- `sei-cosmos/contrib/localnet_liveness.sh:32` — liveness loop in a localnet script
+- `sei-tendermint/networks/remote/integration.sh` — e2e setup curls
+- `integration_test/autobahn/autobahn_test.go:71-73` — explicitly *avoids* `/status` (uses `/abci_info` instead)
 
-### Secondary argument (deprecation)
+**No production code in seid polls `/status`.** No Prometheus, Grafana, or Tenderduty configuration is wired to it anywhere in the workspace. Cosmovisor scans stderr, not RPC. The "monitoring fleet" the failure-isolation argument was protecting does not exist for Sei.
 
-The "we want to deprecate Tendermint RPC eventually" point cuts the *opposite* way from initial intuition. A discrete route is trivially shimmed, proxied, or replaced by whatever succeeds Tendermint RPC. A nested field inside `ResultStatus` is welded to the struct's lifetime — a future replacement has to keep emitting the same field at the same nesting depth, or migrate every consumer in lockstep. The dedicated route gives us more freedom, not less.
+The single known unknown is `sei-k8s-controller`, which is in a separate repo not present in this workspace. The team's stated belief is that production `/status` consumption is "strictly integration tests and thin orchestration systems," which extends to the controller's usage. We accept this characterization for now; the consumer follow-up PR can verify.
 
-### Counterarguments and how we address them
+### What's left of the failure-isolation concern
 
-- *"A new endpoint is a smell."* Real, but the smell is preferable to the failure-isolation cost. The endpoint is small (one method, one response shape, one mutex) and serves a single purpose. It is not a kitchen-sink endpoint waiting to grow.
-- *"Discoverability."* The Tier-2 sidecar (when it ships) knows about `/halt_intent` natively and is the controller's primary path. For systemd/curl operators, discoverability is solved by docs. We deliberately do **not** advertise `/halt_intent` via `/status`'s `node_info.other` map — that re-couples the two routes' release lifecycles, which the failure-isolation argument is trying to decouple.
-- *"What about the deprecation."* See above. A dedicated route is *easier* to migrate, not harder.
+Only **defensive programming**: a bug in halt-intent population (lock contention, nil-deref on `PlanName`, serialization edge case) shouldn't be able to crash the `/status` handler. This is solvable cheaply — see the [concurrency contract](#concurrency-contract) below — and does not require a separate endpoint.
 
-### Open question (defer)
+### Counterarguments and remaining concerns
 
-If a future contributor argues that the failure-isolation risk is overstated — i.e. demonstrates that the halt-intent reader can be made unconditionally safe with no shared lock with consensus — the right move is *still* a dedicated route on first ship, and revisit consolidation later. Easier to merge two routes than split one.
+- *"A nested field welded to `ResultStatus`'s lifetime is harder to migrate when we deprecate Tendermint RPC."* Mitigated by the additivity of JSON: a successor surface can simply re-emit the same field shape, or migrate consumers field-by-field. The shape is owned by sei-config and stable independent of the route that serves it.
+- *"What if a future production consumer (Prometheus exporter, third-party explorer) starts polling `/status` and is sensitive to schema changes?"* The new field is additive and `omitempty`. A consumer that doesn't know about `halt_intent` sees the same shape it sees today. A consumer that *does* know about it gets the signal for free without a separate poll.
+- *"Should we keep a fallback to a dedicated route if the defensive-programming approach proves insufficient?"* No — easier to add a route later than to retire one. Ship the simpler design first.
 
 ---
 
@@ -116,7 +116,7 @@ const (
     ExitCodeDowngradeDetected = 72
 )
 
-// HaltIntent is the structured signal seid serves on /halt_intent and that
+// HaltIntent is the structured signal seid populates on /status and that
 // describes the reason for an in-progress or pending graceful halt.
 //
 // JSON tags are part of the wire contract and must not be renamed without
@@ -150,7 +150,7 @@ Notable omissions, all deliberate:
 
 In `sei-cosmos/x/upgrade/abci.go`, replace the three `panic()` calls with calls to a new helper `gracefulHalt(reason, intent)` that:
 
-1. Sets the HaltIntent on a process-global holder (an `RWMutex`-protected struct in a small new package, importable by both `x/upgrade` and the `/halt_intent` HTTP handler in `sei-tendermint`).
+1. Sets the HaltIntent on a process-global holder (an `RWMutex`-protected struct in a small new package, importable by both `x/upgrade` and the `/status` handler in `sei-tendermint`).
 2. Performs the existing logging + raw stderr write + (for the line-119 path) `upgrade-info.json` write. **No change to those existing artifacts.**
 3. Sends `SIGINT` to self, mirroring the existing `BaseApp.halt()` pattern.
 4. The shutdown defer in `sei-cosmos/server/start.go:459-484` is extended to read the holder, look up the matching exit code via `seiconfig.ParseExitCode`, and call `os.Exit(N)` with the distinct code instead of returning normally.
@@ -168,28 +168,29 @@ Stay-alive mode requires splitting the shared `goCtx` in `sei-cosmos/server/star
 
 A flag name is deliberately not specified in this design — the producer PR can pick something like `--halt-stay-alive` or `--halt-stays-running`. Naming bikeshed deferred.
 
-## /halt_intent route (also out of scope for this PR, sketched)
+## `halt_intent` field on `/status` (also out of scope for this PR, sketched)
 
-A new Tendermint RPC route on `sei-tendermint`, registered alongside the existing Sei-only `/lag_status`. Path: `/halt_intent`. Always reachable while the RPC server is up.
+The existing `/status` handler in `sei-tendermint` is extended to populate an optional `halt_intent` field on its response, sourced from the in-process holder. The handler change is contained — a few lines reading from the holder and adding the field to the existing `ResultStatus`-shaped response.
 
-### Response
+### Response shape
 
-- Always **`200 OK`** with the HaltIntent JSON.
-- When healthy: `{"reason": 0, "reason_string": "healthy", "announced_at": "..."}`.
-- When halted: the populated HaltIntent.
+- **Healthy node:** `halt_intent` is omitted (or null, depending on JSON-encoding choice — `omitempty` recommended). Existing `/status` consumers see no change.
+- **Halted node:** `halt_intent` is populated with the full `HaltIntent` value defined in sei-config.
 
-**Not 204. Not 404.** A 404 is indistinguishable from "older seid doesn't have this route" and breaks consumer version-probing. We always answer 200 with a populated `reason` field.
+This means a `/status` consumer that has never heard of `halt_intent` continues to work; one that knows the field gets the halt signal for free without polling a second endpoint.
 
 ### Concurrency contract
 
-- HaltIntent state is held under an `RWMutex` in the holder package.
-- The producer (BeginBlocker → gracefulHalt) writes once under `Lock()` and never mutates the value after. It is safe to publish a pointer once and never replace it.
-- The handler reads under `RLock()`. It copies a snapshot out of the lock and serializes outside.
-- The handler has a `defer recover()` so a bug in halt-intent serialization cannot bring down the broader Tendermint RPC server (failure-isolation principle from the [decision section](#-decision-dedicated-halt_intent-route-not-extending-status)).
+This is the only piece of the original design that survives unchanged — it's the cheap defensive programming that absorbs what's left of the failure-isolation concern.
+
+- HaltIntent state is held under an `RWMutex` in a small holder package importable by both `x/upgrade` (writer) and `sei-tendermint` (reader).
+- The producer (BeginBlocker → `gracefulHalt`) writes once under `Lock()` and never mutates the value after. It is safe to publish a pointer once and never replace it.
+- The reader (the `/status` handler's halt-intent lookup) takes `RLock()`, copies a snapshot out of the lock, serializes outside.
+- **The halt-intent population path inside the `/status` handler must `defer recover()`** so that a bug in halt-intent code (nil-deref, serialization panic, lock misuse) cannot 500 the broader `/status` response. On recover, log and emit `halt_intent: null`. `/status` continues to serve sync state.
 
 ### Discoverability
 
-The Tier-2 sidecar knows about `/halt_intent` natively. For non-sidecar consumers (systemd, curl), the route is documented in seid's reference docs. We do **not** advertise it via `/status`'s `node_info.other` field — that would re-couple the two routes' lifecycles, which contradicts the failure-isolation rationale for splitting them.
+`/status` is already the canonical place to ask seid "what's your state?". No new advertisement, no `node_info.other` entry, no version-gating dance. Consumers that know the field use it; consumers that don't keep working as before.
 
 ## What's NOT in this PR (or this design's scope)
 
@@ -210,7 +211,7 @@ The Tier-2 sidecar knows about `/halt_intent` natively. For non-sidecar consumer
 ## Cross-repo coordination
 
 - **This PR (sei-config):** ships the contract.
-- **Follow-up sei-chain issue/PR:** implements the producer (graceful-halt helper, stay-alive mode flag, `/halt_intent` route on sei-tendermint).
-- **Follow-up sei-k8s-controller issue/PR:** implements the consumer (poll `/halt_intent`, branch on `ShutdownReason`, drive image swap or page).
+- **Follow-up sei-chain issue/PR:** implements the producer (graceful-halt helper, stay-alive mode flag, `halt_intent` field on the `/status` response in sei-tendermint).
+- **Follow-up sei-k8s-controller issue/PR:** implements the consumer (poll `/status`, branch on the `halt_intent` field's `reason`, drive image swap or page).
 
-The sei-config PR must not merge until both follow-up issues are filed and linked. The producer must not merge until consumers can pin the matching sei-config version. The `/halt_intent` route can ship in sei-tendermint independently of the panic-replacement, but they should ship together to avoid releasing a route that always reports "healthy" for halt conditions a binary cannot otherwise survive.
+The sei-config PR must not merge until both follow-up issues are filed and linked. The producer must not merge until consumers can pin the matching sei-config version. The `/status` field extension can ship in sei-tendermint independently of the panic-replacement, but they should ship together to avoid releasing a field that is always absent because the producer never populates it.

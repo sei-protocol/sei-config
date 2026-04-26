@@ -25,7 +25,7 @@ To any process supervisor — Kubernetes (`lastState.terminated.exitCode`), syst
 **In scope** for this issue / PR:
 
 - A new file in sei-config defining the contract: `ShutdownReason` enum, exit-code constants (70/71/72 with 73-79 reserved, 80-89 reserved for future non-upgrade graceful halts), `HaltIntent` struct (typed and JSON-serializable), `ParseExitCode` helper. ~30-50 lines plus a unit test.
-- The companion design document (`DESIGN.md`) covering: producer-side change shape in sei-chain, opt-in stay-alive mode, the new `/halt_intent` route on sei-tendermint RPC, and cross-repo coordination.
+- The companion design document (`DESIGN.md`) covering: producer-side change shape in sei-chain, opt-in stay-alive mode, the new optional `halt_intent` field on the existing `/status` response served by sei-tendermint RPC, and cross-repo coordination.
 
 **Out of scope:**
 
