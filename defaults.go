@@ -122,7 +122,7 @@ func baseDefaults() *SeiConfig {
 			},
 			StateStore: StateStoreConfig{
 				Enable:               true,
-				Backend:              "pebbledb",
+				Backend:              BackendPebbleDB,
 				AsyncWriteBuffer:     100,
 				KeepRecent:           100_000,
 				PruneIntervalSeconds: 600,
@@ -130,6 +130,13 @@ func baseDefaults() *SeiConfig {
 				KeepLastVersion:      true,
 				WriteMode:            WriteModeCosmosOnly,
 				ReadMode:             ReadModeCosmosOnly,
+			},
+			ReceiptStore: ReceiptStoreConfig{
+				Backend:              BackendPebbleDB,
+				AsyncWriteBuffer:     100,
+				KeepRecent:           100_000,
+				PruneIntervalSeconds: 600,
+				TxIndexBackend:       BackendPebbleDB,
 			},
 		},
 
@@ -301,7 +308,15 @@ func applyArchiveOverrides(cfg *SeiConfig) {
 
 	cfg.Storage.PruningStrategy = PruningNothing
 	cfg.Storage.StateStore.KeepRecent = 0
+	// All three knobs that govern receipt retention are pinned to "no
+	// pruning" intent. On post-#3237 sei-chain only MinRetainBlocks=0 is
+	// load-bearing (KeepRecent is mapstructure:"-" and PruneIntervalSeconds=0
+	// is silently floored on the pebbledb backend); on pre-#3237 binaries
+	// the receipt-store keys are what take effect. Setting all three keeps
+	// the emitted TOML self-documenting and version-agnostic.
 	cfg.Chain.MinRetainBlocks = 0
+	cfg.Storage.ReceiptStore.KeepRecent = 0
+	cfg.Storage.ReceiptStore.PruneIntervalSeconds = 0
 	cfg.EVM.MaxTraceLookbackBlocks = -1
 
 	cfg.Storage.StateCommit.AsyncCommitBuffer = 100

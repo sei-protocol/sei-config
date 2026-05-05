@@ -15,6 +15,9 @@ const (
 	ModeArchive   NodeMode = "archive"
 )
 
+// BackendPebbleDB is the upstream-accepted name for the pebbledb backend.
+const BackendPebbleDB = "pebbledb"
+
 var validModes = map[NodeMode]bool{
 	ModeValidator: true,
 	ModeFull:      true,

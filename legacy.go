@@ -195,6 +195,7 @@ type legacyAppConfig struct {
 	StateSync       legacyAppStateSync    `toml:"state-sync"`
 	StateCommit     legacyStateCommit     `toml:"state-commit"`
 	StateStore      legacyStateStore      `toml:"state-store"`
+	ReceiptStore    legacyReceiptStore    `toml:"receipt-store"`
 	EVM             legacyEVM             `toml:"evm"`
 	WASM            legacyWASM            `toml:"wasm"`
 	GigaExecutor    legacyGigaExecutor    `toml:"giga_executor"`
@@ -279,6 +280,18 @@ type legacyStateStore struct {
 	WriteMode            string `toml:"ss-write-mode"`
 	ReadMode             string `toml:"ss-read-mode"`
 	EVMDBDirectory       string `toml:"ss-evm-db-directory"`
+}
+
+// legacyReceiptStore mirrors the keys sei-chain reads from app.toml.
+// Note: rs-backend is asymmetric — only Backend carries the rs- prefix
+// upstream. The other keys do not.
+type legacyReceiptStore struct {
+	Backend              string `toml:"rs-backend"`
+	DBDirectory          string `toml:"db-directory"`
+	AsyncWriteBuffer     int    `toml:"async-write-buffer"`
+	KeepRecent           int    `toml:"keep-recent"`
+	PruneIntervalSeconds int    `toml:"prune-interval-seconds"`
+	TxIndexBackend       string `toml:"tx-index-backend"`
 }
 
 type legacyEVM struct {
@@ -589,6 +602,15 @@ func (cfg *SeiConfig) toLegacyApp() legacyAppConfig {
 			EVMDBDirectory:       cfg.Storage.StateStore.EVMDBDirectory,
 		},
 
+		ReceiptStore: legacyReceiptStore{
+			Backend:              cfg.Storage.ReceiptStore.Backend,
+			DBDirectory:          cfg.Storage.ReceiptStore.DBDirectory,
+			AsyncWriteBuffer:     cfg.Storage.ReceiptStore.AsyncWriteBuffer,
+			KeepRecent:           cfg.Storage.ReceiptStore.KeepRecent,
+			PruneIntervalSeconds: cfg.Storage.ReceiptStore.PruneIntervalSeconds,
+			TxIndexBackend:       cfg.Storage.ReceiptStore.TxIndexBackend,
+		},
+
 		EVM: legacyEVM{
 			HTTPEnabled:                  cfg.EVM.HTTPEnabled,
 			HTTPPort:                     cfg.EVM.HTTPPort,
@@ -840,6 +862,14 @@ func fromLegacy(tm legacyTendermintConfig, app legacyAppConfig) *SeiConfig {
 				WriteMode:            WriteMode(app.StateStore.WriteMode),
 				ReadMode:             ReadMode(app.StateStore.ReadMode),
 				EVMDBDirectory:       app.StateStore.EVMDBDirectory,
+			},
+			ReceiptStore: ReceiptStoreConfig{
+				Backend:              app.ReceiptStore.Backend,
+				DBDirectory:          app.ReceiptStore.DBDirectory,
+				AsyncWriteBuffer:     app.ReceiptStore.AsyncWriteBuffer,
+				KeepRecent:           app.ReceiptStore.KeepRecent,
+				PruneIntervalSeconds: app.ReceiptStore.PruneIntervalSeconds,
+				TxIndexBackend:       app.ReceiptStore.TxIndexBackend,
 			},
 		},
 

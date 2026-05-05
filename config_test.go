@@ -3,6 +3,7 @@ package seiconfig
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -75,6 +76,75 @@ func TestDefaultForMode_ArchiveKeepsAll(t *testing.T) {
 	}
 	if cfg.EVM.MaxTraceLookbackBlocks != -1 {
 		t.Errorf("archive max_trace_lookback_blocks: got %d, want -1", cfg.EVM.MaxTraceLookbackBlocks)
+	}
+	// All three knobs that govern receipt-store retention must evaluate to
+	// "no pruning" — min-retain-blocks=0 (drives ReceiptStore.KeepRecent at
+	// the app layer), pruning="nothing", and prune-interval-seconds=0.
+	if got := cfg.Storage.ReceiptStore.KeepRecent; got != 0 {
+		t.Errorf("archive receipt_store.keep_recent: got %d, want 0", got)
+	}
+	if got := cfg.Storage.ReceiptStore.PruneIntervalSeconds; got != 0 {
+		t.Errorf("archive receipt_store.prune_interval_seconds: got %d, want 0", got)
+	}
+}
+
+func TestWriteArchive_ReceiptStoreTOMLKeys(t *testing.T) {
+	// Pin the literal app.toml keys in the [receipt-store] section. A symmetric
+	// tag typo across toLegacyApp / fromLegacy round-trips cleanly but produces
+	// an app.toml seid won't accept (e.g., flagRSMisnamedBackend rejects
+	// "backend" without the rs- prefix at startup). Tag-renaming refactors
+	// must update this list.
+	dir := t.TempDir()
+	if err := WriteConfigToDir(DefaultForMode(ModeArchive), dir); err != nil {
+		t.Fatalf("WriteConfigToDir: %v", err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "config", "app.toml"))
+	if err != nil {
+		t.Fatalf("read app.toml: %v", err)
+	}
+	out := string(raw)
+
+	if !strings.Contains(out, "[receipt-store]") {
+		t.Fatalf("app.toml missing [receipt-store] section:\n%s", out)
+	}
+	requiredKeys := []string{
+		"rs-backend = ",
+		"db-directory = ",
+		"async-write-buffer = ",
+		"keep-recent = ",
+		"prune-interval-seconds = ",
+		"tx-index-backend = ",
+	}
+	for _, k := range requiredKeys {
+		if !strings.Contains(out, k) {
+			t.Errorf("app.toml missing receipt-store key %q", k)
+		}
+	}
+	// Reject the misnamed-backend variant — sei-chain hard-errors on it.
+	if strings.Contains(out, "\nbackend = ") {
+		t.Errorf("app.toml emits unprefixed `backend = ` which sei-chain rejects")
+	}
+}
+
+func TestDefaultForMode_ReceiptStoreDefaults(t *testing.T) {
+	// Non-archive modes match sei-chain's documented defaults so the emitted
+	// TOML matches operator expectations on both pre- and post-#3237 binaries.
+	rs := DefaultForMode(ModeFull).Storage.ReceiptStore
+
+	if rs.Backend != BackendPebbleDB {
+		t.Errorf("receipt_store.backend: got %q, want %q", rs.Backend, BackendPebbleDB)
+	}
+	if rs.AsyncWriteBuffer != 100 {
+		t.Errorf("receipt_store.async_write_buffer: got %d, want 100", rs.AsyncWriteBuffer)
+	}
+	if rs.KeepRecent != 100_000 {
+		t.Errorf("receipt_store.keep_recent: got %d, want 100000", rs.KeepRecent)
+	}
+	if rs.PruneIntervalSeconds != 600 {
+		t.Errorf("receipt_store.prune_interval_seconds: got %d, want 600", rs.PruneIntervalSeconds)
+	}
+	if rs.TxIndexBackend != BackendPebbleDB {
+		t.Errorf("receipt_store.tx_index_backend: got %q, want %q", rs.TxIndexBackend, BackendPebbleDB)
 	}
 }
 
@@ -222,6 +292,10 @@ func TestWriteReadRoundTrip_AllModes(t *testing.T) {
 			if loaded.Storage.PruningStrategy != original.Storage.PruningStrategy {
 				t.Errorf("pruning: got %q, want %q",
 					loaded.Storage.PruningStrategy, original.Storage.PruningStrategy)
+			}
+			if loaded.Storage.ReceiptStore != original.Storage.ReceiptStore {
+				t.Errorf("receipt_store: got %+v, want %+v",
+					loaded.Storage.ReceiptStore, original.Storage.ReceiptStore)
 			}
 		})
 	}
