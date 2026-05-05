@@ -341,11 +341,9 @@ type StateStoreConfig struct {
 	EVMDBDirectory       string    `toml:"evm_db_directory"`
 }
 
-// ReceiptStoreConfig mirrors sei-chain's ReceiptStoreConfig.
-// On post-#3237 sei-chain, KeepRecent is tagged `mapstructure:"-"` upstream
-// and is stamped from base-app min-retain-blocks at startup; the TOML key
-// is silently ignored. We still emit it so the config self-documents the
-// retention intent and remains compatible with pre-#3237 binaries.
+// ReceiptStoreConfig — KeepRecent is silently ignored at runtime;
+// sei-chain tags it `mapstructure:"-"` and stamps the value from base-app
+// min-retain-blocks. Emitted anyway so the TOML documents retention intent.
 type ReceiptStoreConfig struct {
 	Backend              string `toml:"backend"`
 	DBDirectory          string `toml:"db_directory"`

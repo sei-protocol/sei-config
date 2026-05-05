@@ -308,12 +308,8 @@ func applyArchiveOverrides(cfg *SeiConfig) {
 
 	cfg.Storage.PruningStrategy = PruningNothing
 	cfg.Storage.StateStore.KeepRecent = 0
-	// All three knobs that govern receipt retention are pinned to "no
-	// pruning" intent. On post-#3237 sei-chain only MinRetainBlocks=0 is
-	// load-bearing (KeepRecent is mapstructure:"-" and PruneIntervalSeconds=0
-	// is silently floored on the pebbledb backend); on pre-#3237 binaries
-	// the receipt-store keys are what take effect. Setting all three keeps
-	// the emitted TOML self-documenting and version-agnostic.
+	// Only MinRetainBlocks disables receipt pruning at runtime; the next two
+	// are emitted to document intent (see ReceiptStoreConfig).
 	cfg.Chain.MinRetainBlocks = 0
 	cfg.Storage.ReceiptStore.KeepRecent = 0
 	cfg.Storage.ReceiptStore.PruneIntervalSeconds = 0

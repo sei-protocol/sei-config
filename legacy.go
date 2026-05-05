@@ -282,9 +282,8 @@ type legacyStateStore struct {
 	EVMDBDirectory       string `toml:"ss-evm-db-directory"`
 }
 
-// legacyReceiptStore mirrors the keys sei-chain reads from app.toml.
-// Note: rs-backend is asymmetric — only Backend carries the rs- prefix
-// upstream. The other keys do not.
+// rs-backend is asymmetric upstream — only Backend carries the rs- prefix.
+// flagRSMisnamedBackend rejects the unprefixed `backend` key at startup.
 type legacyReceiptStore struct {
 	Backend              string `toml:"rs-backend"`
 	DBDirectory          string `toml:"db-directory"`

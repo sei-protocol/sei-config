@@ -77,9 +77,6 @@ func TestDefaultForMode_ArchiveKeepsAll(t *testing.T) {
 	if cfg.EVM.MaxTraceLookbackBlocks != -1 {
 		t.Errorf("archive max_trace_lookback_blocks: got %d, want -1", cfg.EVM.MaxTraceLookbackBlocks)
 	}
-	// All three knobs that govern receipt-store retention must evaluate to
-	// "no pruning" — min-retain-blocks=0 (drives ReceiptStore.KeepRecent at
-	// the app layer), pruning="nothing", and prune-interval-seconds=0.
 	if got := cfg.Storage.ReceiptStore.KeepRecent; got != 0 {
 		t.Errorf("archive receipt_store.keep_recent: got %d, want 0", got)
 	}
@@ -89,11 +86,8 @@ func TestDefaultForMode_ArchiveKeepsAll(t *testing.T) {
 }
 
 func TestWriteArchive_ReceiptStoreTOMLKeys(t *testing.T) {
-	// Pin the literal app.toml keys in the [receipt-store] section. A symmetric
-	// tag typo across toLegacyApp / fromLegacy round-trips cleanly but produces
-	// an app.toml seid won't accept (e.g., flagRSMisnamedBackend rejects
-	// "backend" without the rs- prefix at startup). Tag-renaming refactors
-	// must update this list.
+	// Symmetric tag typos round-trip cleanly but produce a TOML seid rejects;
+	// pin the literal upstream key tokens.
 	dir := t.TempDir()
 	if err := WriteConfigToDir(DefaultForMode(ModeArchive), dir); err != nil {
 		t.Fatalf("WriteConfigToDir: %v", err)
@@ -120,15 +114,13 @@ func TestWriteArchive_ReceiptStoreTOMLKeys(t *testing.T) {
 			t.Errorf("app.toml missing receipt-store key %q", k)
 		}
 	}
-	// Reject the misnamed-backend variant — sei-chain hard-errors on it.
+	// flagRSMisnamedBackend hard-errors on the unprefixed key at startup.
 	if strings.Contains(out, "\nbackend = ") {
 		t.Errorf("app.toml emits unprefixed `backend = ` which sei-chain rejects")
 	}
 }
 
 func TestDefaultForMode_ReceiptStoreDefaults(t *testing.T) {
-	// Non-archive modes match sei-chain's documented defaults so the emitted
-	// TOML matches operator expectations on both pre- and post-#3237 binaries.
 	rs := DefaultForMode(ModeFull).Storage.ReceiptStore
 
 	if rs.Backend != BackendPebbleDB {
