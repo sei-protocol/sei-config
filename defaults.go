@@ -122,7 +122,7 @@ func baseDefaults() *SeiConfig {
 			},
 			StateStore: StateStoreConfig{
 				Enable:               true,
-				Backend:              "pebbledb",
+				Backend:              BackendPebbleDB,
 				AsyncWriteBuffer:     100,
 				KeepRecent:           100_000,
 				PruneIntervalSeconds: 600,
@@ -130,6 +130,13 @@ func baseDefaults() *SeiConfig {
 				KeepLastVersion:      true,
 				WriteMode:            WriteModeCosmosOnly,
 				ReadMode:             ReadModeCosmosOnly,
+			},
+			ReceiptStore: ReceiptStoreConfig{
+				Backend:              BackendPebbleDB,
+				AsyncWriteBuffer:     100,
+				KeepRecent:           100_000,
+				PruneIntervalSeconds: 600,
+				TxIndexBackend:       BackendPebbleDB,
 			},
 		},
 
@@ -301,7 +308,11 @@ func applyArchiveOverrides(cfg *SeiConfig) {
 
 	cfg.Storage.PruningStrategy = PruningNothing
 	cfg.Storage.StateStore.KeepRecent = 0
+	// Only MinRetainBlocks disables receipt pruning at runtime; the next two
+	// are emitted to document intent (see ReceiptStoreConfig).
 	cfg.Chain.MinRetainBlocks = 0
+	cfg.Storage.ReceiptStore.KeepRecent = 0
+	cfg.Storage.ReceiptStore.PruneIntervalSeconds = 0
 	cfg.EVM.MaxTraceLookbackBlocks = -1
 
 	cfg.Storage.StateCommit.AsyncCommitBuffer = 100

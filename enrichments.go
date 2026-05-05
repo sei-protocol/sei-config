@@ -235,6 +235,28 @@ func DefaultEnrichments() map[string][]FieldOption {
 			WithUnit("seconds"),
 		},
 
+		// Storage — Receipt Store
+		"storage.receipt_store.backend": {
+			WithDescription("Receipt store backend: pebbledb, parquet."),
+		},
+		"storage.receipt_store.db_directory": {
+			WithDescription("Receipt store data directory. Empty means use the application home."),
+		},
+		"storage.receipt_store.async_write_buffer": {
+			WithDescription("Async write queue length for the pebbledb receipt store. Set <=0 for synchronous writes."),
+		},
+		"storage.receipt_store.keep_recent": {
+			WithDescription("Receipt versions to retain. 0 keeps all."),
+			WithUnit("versions"),
+		},
+		"storage.receipt_store.prune_interval_seconds": {
+			WithDescription("Interval between receipt-store pruning passes."),
+			WithUnit("seconds"),
+		},
+		"storage.receipt_store.tx_index_backend": {
+			WithDescription("Tx-hash index backend for the parquet receipt store. Empty disables the index."),
+		},
+
 		// ---------------------------------------------------------------
 		// Tx Index
 		// ---------------------------------------------------------------

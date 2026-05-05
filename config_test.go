@@ -3,6 +3,7 @@ package seiconfig
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -75,6 +76,67 @@ func TestDefaultForMode_ArchiveKeepsAll(t *testing.T) {
 	}
 	if cfg.EVM.MaxTraceLookbackBlocks != -1 {
 		t.Errorf("archive max_trace_lookback_blocks: got %d, want -1", cfg.EVM.MaxTraceLookbackBlocks)
+	}
+	if got := cfg.Storage.ReceiptStore.KeepRecent; got != 0 {
+		t.Errorf("archive receipt_store.keep_recent: got %d, want 0", got)
+	}
+	if got := cfg.Storage.ReceiptStore.PruneIntervalSeconds; got != 0 {
+		t.Errorf("archive receipt_store.prune_interval_seconds: got %d, want 0", got)
+	}
+}
+
+func TestWriteArchive_ReceiptStoreTOMLKeys(t *testing.T) {
+	// Symmetric tag typos round-trip cleanly but produce a TOML seid rejects;
+	// pin the literal upstream key tokens.
+	dir := t.TempDir()
+	if err := WriteConfigToDir(DefaultForMode(ModeArchive), dir); err != nil {
+		t.Fatalf("WriteConfigToDir: %v", err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "config", "app.toml"))
+	if err != nil {
+		t.Fatalf("read app.toml: %v", err)
+	}
+	out := string(raw)
+
+	if !strings.Contains(out, "[receipt-store]") {
+		t.Fatalf("app.toml missing [receipt-store] section:\n%s", out)
+	}
+	requiredKeys := []string{
+		"rs-backend = ",
+		"db-directory = ",
+		"async-write-buffer = ",
+		"keep-recent = ",
+		"prune-interval-seconds = ",
+		"tx-index-backend = ",
+	}
+	for _, k := range requiredKeys {
+		if !strings.Contains(out, k) {
+			t.Errorf("app.toml missing receipt-store key %q", k)
+		}
+	}
+	// flagRSMisnamedBackend hard-errors on the unprefixed key at startup.
+	if strings.Contains(out, "\nbackend = ") {
+		t.Errorf("app.toml emits unprefixed `backend = ` which sei-chain rejects")
+	}
+}
+
+func TestDefaultForMode_ReceiptStoreDefaults(t *testing.T) {
+	rs := DefaultForMode(ModeFull).Storage.ReceiptStore
+
+	if rs.Backend != BackendPebbleDB {
+		t.Errorf("receipt_store.backend: got %q, want %q", rs.Backend, BackendPebbleDB)
+	}
+	if rs.AsyncWriteBuffer != 100 {
+		t.Errorf("receipt_store.async_write_buffer: got %d, want 100", rs.AsyncWriteBuffer)
+	}
+	if rs.KeepRecent != 100_000 {
+		t.Errorf("receipt_store.keep_recent: got %d, want 100000", rs.KeepRecent)
+	}
+	if rs.PruneIntervalSeconds != 600 {
+		t.Errorf("receipt_store.prune_interval_seconds: got %d, want 600", rs.PruneIntervalSeconds)
+	}
+	if rs.TxIndexBackend != BackendPebbleDB {
+		t.Errorf("receipt_store.tx_index_backend: got %q, want %q", rs.TxIndexBackend, BackendPebbleDB)
 	}
 }
 
@@ -222,6 +284,10 @@ func TestWriteReadRoundTrip_AllModes(t *testing.T) {
 			if loaded.Storage.PruningStrategy != original.Storage.PruningStrategy {
 				t.Errorf("pruning: got %q, want %q",
 					loaded.Storage.PruningStrategy, original.Storage.PruningStrategy)
+			}
+			if loaded.Storage.ReceiptStore != original.Storage.ReceiptStore {
+				t.Errorf("receipt_store: got %+v, want %+v",
+					loaded.Storage.ReceiptStore, original.Storage.ReceiptStore)
 			}
 		})
 	}

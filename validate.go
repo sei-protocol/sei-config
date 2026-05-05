@@ -271,7 +271,7 @@ func validateStorage(r *ValidationResult, cfg *SeiConfig) {
 	if ss.ReadMode != "" && !ss.ReadMode.IsValid() {
 		r.addError("storage.state_store.read_mode", fmt.Sprintf("invalid read_mode: %q", ss.ReadMode))
 	}
-	if ss.Backend != "" && ss.Backend != "pebbledb" && ss.Backend != "rocksdb" {
+	if ss.Backend != "" && ss.Backend != BackendPebbleDB && ss.Backend != "rocksdb" {
 		r.addWarning("storage.state_store.backend", fmt.Sprintf(
 			"unusual backend %q; expected pebbledb or rocksdb", ss.Backend))
 	}
