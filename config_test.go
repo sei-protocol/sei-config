@@ -609,6 +609,17 @@ func TestResolveEnv_LegacyPrefix(t *testing.T) {
 	}
 }
 
+func TestResolveEnv_StringSlice(t *testing.T) {
+	cfg := Default()
+	t.Setenv("SEI_EVM_ENABLED_LEGACY_SEI_APIS", "sei_getLogs,sei_getBlockByNumber")
+
+	ResolveEnv(cfg)
+	got := cfg.EVM.EnabledLegacySeiApis
+	if len(got) != 2 || got[0] != "sei_getLogs" || got[1] != "sei_getBlockByNumber" {
+		t.Errorf("after ResolveEnv: got %v, want [sei_getLogs sei_getBlockByNumber]", got)
+	}
+}
+
 func TestResolveEnv_SEIPrecedence(t *testing.T) {
 	cfg := Default()
 	t.Setenv("SEI_CHAIN_MIN_GAS_PRICES", "0.5usei")
