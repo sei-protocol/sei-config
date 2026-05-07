@@ -169,9 +169,12 @@ func setReflectValue(v reflect.Value, s string) error {
 		v.SetFloat(n)
 	case reflect.Slice:
 		if v.Type().Elem().Kind() != reflect.String {
-			return fmt.Errorf("unsupported slice element type: %s", v.Type().Elem())
+			return fmt.Errorf("unsupported slice element kind: %s", v.Type().Elem().Kind())
 		}
-		out := parseStringSlice(s)
+		out, err := parseStringSlice(s)
+		if err != nil {
+			return err
+		}
 		sliceVal := reflect.MakeSlice(v.Type(), len(out), len(out))
 		for i, p := range out {
 			sliceVal.Index(i).SetString(p)
@@ -201,21 +204,22 @@ func parseFloat64(s string) (float64, error) {
 	return n, err
 }
 
-// parseStringSlice splits a comma-separated string into a slice, trimming
-// whitespace and dropping empty entries. An empty input yields a non-nil
-// zero-length slice so override-set fields always render into TOML.
-func parseStringSlice(s string) []string {
+// parseStringSlice splits a comma-separated string, trims whitespace, and
+// rejects empty entries so operator typos fail loudly. Empty input yields a
+// non-nil zero-length slice: BurntSushi/toml encodes nil as omitted,
+// []string{} as "field = []".
+func parseStringSlice(s string) ([]string, error) {
 	if s == "" {
-		return []string{}
+		return []string{}, nil
 	}
 	parts := strings.Split(s, ",")
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p == "" {
-			continue
+		trimmed := strings.TrimSpace(p)
+		if trimmed == "" {
+			return nil, fmt.Errorf("empty entry in string slice value %q", s)
 		}
-		out = append(out, p)
+		out = append(out, trimmed)
 	}
-	return out
+	return out, nil
 }

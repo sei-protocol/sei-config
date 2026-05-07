@@ -476,9 +476,7 @@ func TestApplyOverrides_StringSlice(t *testing.T) {
 		{"single value", "kv", []string{"kv"}},
 		{"multi value", "kv,psql", []string{"kv", "psql"}},
 		{"trims whitespace", " kv , psql ", []string{"kv", "psql"}},
-		{"drops empty entries", "kv,,psql,", []string{"kv", "psql"}},
 		{"empty string yields empty slice", "", []string{}},
-		{"only commas yields empty slice", ",,,", []string{}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -505,6 +503,21 @@ func TestApplyOverrides_StringSlice(t *testing.T) {
 	}
 }
 
+func TestApplyOverrides_StringSliceRejectsEmptyEntries(t *testing.T) {
+	cases := []string{"kv,,psql", ",kv", "kv,", ",,,", "kv, ,psql"}
+	for _, in := range cases {
+		t.Run(in, func(t *testing.T) {
+			cfg := Default()
+			err := ApplyOverrides(cfg, map[string]string{
+				"tx_index.indexer": in,
+			})
+			if err == nil {
+				t.Fatalf("expected error for input %q, got nil", in)
+			}
+		})
+	}
+}
+
 func TestApplyOverrides_StringSliceOverwritesDefault(t *testing.T) {
 	cfg := Default()
 	if err := ApplyOverrides(cfg, map[string]string{
@@ -515,6 +528,48 @@ func TestApplyOverrides_StringSliceOverwritesDefault(t *testing.T) {
 	if len(cfg.TxIndex.Indexer) != 1 || cfg.TxIndex.Indexer[0] != "kv" {
 		t.Errorf("indexer: got %v, want [kv]", cfg.TxIndex.Indexer)
 	}
+}
+
+func TestApplyOverrides_StringSliceRoundTripTOML(t *testing.T) {
+	dir := t.TempDir()
+
+	cases := []struct {
+		name string
+		in   string
+		want []string
+	}{
+		{"non-empty list survives round-trip", "kv,psql", []string{"kv", "psql"}},
+		{"empty list survives round-trip as []", "", []string{}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := DefaultForMode(ModeFull)
+			if err := ApplyOverrides(cfg, map[string]string{
+				"tx_index.indexer": tc.in,
+			}); err != nil {
+				t.Fatalf("ApplyOverrides: %v", err)
+			}
+			subdir := t.TempDir()
+			if err := WriteConfigToDir(cfg, subdir); err != nil {
+				t.Fatalf("WriteConfigToDir: %v", err)
+			}
+			loaded, err := ReadConfigFromDir(subdir)
+			if err != nil {
+				t.Fatalf("ReadConfigFromDir: %v", err)
+			}
+			got := loaded.TxIndex.Indexer
+			if len(got) != len(tc.want) {
+				t.Fatalf("after round-trip: got %v (len %d), want %v (len %d)",
+					got, len(got), tc.want, len(tc.want))
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Errorf("indexer[%d]: got %q, want %q", i, got[i], tc.want[i])
+				}
+			}
+		})
+	}
+	_ = dir
 }
 
 func TestResolveEnv(t *testing.T) {
