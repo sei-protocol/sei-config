@@ -535,6 +535,43 @@ func TestApplyOverrides_StringSliceOverwritesDefault(t *testing.T) {
 	}
 }
 
+// TestStringSliceMissingKeyDecodesAsNil locks the asymmetry between
+// "field absent in app.toml" and "field present as empty list":
+//
+//	nil          -> key omitted from written TOML -> reads back as nil
+//	[]string{}   -> "field = []" in written TOML  -> reads back as []string{}
+//
+// Downstream consumers branching on nil vs non-nil-empty (e.g. "was this
+// configured at all?") rely on this. BurntSushi/toml v1.5.0 honors the
+// distinction; a future encoder change that normalized nil and empty
+// would silently break that branch.
+func TestStringSliceMissingKeyDecodesAsNil(t *testing.T) {
+	cfg := DefaultForMode(ModeFull)
+	cfg.EVM.EnabledLegacySeiApis = nil
+
+	dir := t.TempDir()
+	if err := WriteConfigToDir(cfg, dir); err != nil {
+		t.Fatalf("WriteConfigToDir: %v", err)
+	}
+
+	appToml, err := os.ReadFile(filepath.Join(dir, "config", "app.toml"))
+	if err != nil {
+		t.Fatalf("read app.toml: %v", err)
+	}
+	if strings.Contains(string(appToml), "enabled_legacy_sei_apis") {
+		t.Errorf("nil slice should be omitted from app.toml; got it written")
+	}
+
+	loaded, err := ReadConfigFromDir(dir)
+	if err != nil {
+		t.Fatalf("ReadConfigFromDir: %v", err)
+	}
+	if loaded.EVM.EnabledLegacySeiApis != nil {
+		t.Errorf("missing key should decode as nil; got %v (len %d)",
+			loaded.EVM.EnabledLegacySeiApis, len(loaded.EVM.EnabledLegacySeiApis))
+	}
+}
+
 func TestApplyOverrides_StringSliceRoundTripTOML(t *testing.T) {
 	dir := t.TempDir()
 
