@@ -227,6 +227,7 @@ func TestWriteReadRoundTrip(t *testing.T) {
 	// so it does not round-trip through the legacy two-file format.
 	original.Chain.Moniker = "test-node"
 	original.EVM.HTTPPort = 9545
+	original.EVM.EnabledLegacySeiApis = []string{"sei_getLogs", "sei_getBlockByNumber"}
 	original.Storage.StateStore.KeepRecent = 50000
 
 	if err := WriteConfigToDir(original, dir); err != nil {
@@ -252,6 +253,10 @@ func TestWriteReadRoundTrip(t *testing.T) {
 	}
 	if loaded.EVM.HTTPPort != 9545 {
 		t.Errorf("evm.http_port: got %d, want 9545", loaded.EVM.HTTPPort)
+	}
+	if got := loaded.EVM.EnabledLegacySeiApis; len(got) != 2 ||
+		got[0] != "sei_getLogs" || got[1] != "sei_getBlockByNumber" {
+		t.Errorf("evm.enabled_legacy_sei_apis: got %v, want [sei_getLogs sei_getBlockByNumber]", got)
 	}
 	if loaded.Storage.StateStore.KeepRecent != 50000 {
 		t.Errorf("state_store.keep_recent: got %d, want 50000", loaded.Storage.StateStore.KeepRecent)

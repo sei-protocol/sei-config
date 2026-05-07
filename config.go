@@ -391,6 +391,11 @@ type EVMConfig struct {
 
 	DenyList []string `toml:"deny_list"`
 
+	// EnabledLegacySeiApis lists deprecated sei_* / sei2_* JSON-RPC methods
+	// the EVM HTTP endpoint will serve. Empty disables the legacy namespace
+	// entirely. The namespace is scheduled for removal; use eth_* methods.
+	EnabledLegacySeiApis []string `toml:"enabled_legacy_sei_apis"`
+
 	MaxLogNoBlock           int64  `toml:"max_log_no_block"`
 	MaxBlocksForLog         int64  `toml:"max_blocks_for_log"`
 	MaxSubscriptionsNewHead uint64 `toml:"max_subscriptions_new_head"`
