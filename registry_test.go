@@ -86,6 +86,7 @@ func TestBuildRegistry_FieldTypes(t *testing.T) {
 		{"mempool.drop_priority_threshold", FieldTypeFloat},
 		{"network.rpc.timeout_broadcast_tx_commit", FieldTypeDuration},
 		{"tx_index.indexer", FieldTypeStringSlice},
+		{"evm.enabled_legacy_sei_apis", FieldTypeStringSlice},
 	}
 
 	for _, tt := range tests {

@@ -161,6 +161,7 @@ func baseDefaults() *SeiConfig {
 			CheckTxTimeout:               Dur(5 * time.Second),
 			MaxTxPoolTxs:                 1000,
 			DenyList:                     []string{},
+			EnabledLegacySeiApis:         []string{},
 			MaxLogNoBlock:                10_000,
 			MaxBlocksForLog:              2000,
 			MaxSubscriptionsNewHead:      10_000,

@@ -227,6 +227,7 @@ func TestWriteReadRoundTrip(t *testing.T) {
 	// so it does not round-trip through the legacy two-file format.
 	original.Chain.Moniker = "test-node"
 	original.EVM.HTTPPort = 9545
+	original.EVM.EnabledLegacySeiApis = []string{"sei_getLogs", "sei_getBlockByNumber"}
 	original.Storage.StateStore.KeepRecent = 50000
 
 	if err := WriteConfigToDir(original, dir); err != nil {
@@ -252,6 +253,10 @@ func TestWriteReadRoundTrip(t *testing.T) {
 	}
 	if loaded.EVM.HTTPPort != 9545 {
 		t.Errorf("evm.http_port: got %d, want 9545", loaded.EVM.HTTPPort)
+	}
+	if got := loaded.EVM.EnabledLegacySeiApis; len(got) != 2 ||
+		got[0] != "sei_getLogs" || got[1] != "sei_getBlockByNumber" {
+		t.Errorf("evm.enabled_legacy_sei_apis: got %v, want [sei_getLogs sei_getBlockByNumber]", got)
 	}
 	if loaded.Storage.StateStore.KeepRecent != 50000 {
 		t.Errorf("state_store.keep_recent: got %d, want 50000", loaded.Storage.StateStore.KeepRecent)
@@ -530,6 +535,43 @@ func TestApplyOverrides_StringSliceOverwritesDefault(t *testing.T) {
 	}
 }
 
+// TestStringSliceMissingKeyDecodesAsNil locks the asymmetry between
+// "field absent in app.toml" and "field present as empty list":
+//
+//	nil          -> key omitted from written TOML -> reads back as nil
+//	[]string{}   -> "field = []" in written TOML  -> reads back as []string{}
+//
+// Downstream consumers branching on nil vs non-nil-empty (e.g. "was this
+// configured at all?") rely on this. BurntSushi/toml v1.5.0 honors the
+// distinction; a future encoder change that normalized nil and empty
+// would silently break that branch.
+func TestStringSliceMissingKeyDecodesAsNil(t *testing.T) {
+	cfg := DefaultForMode(ModeFull)
+	cfg.EVM.EnabledLegacySeiApis = nil
+
+	dir := t.TempDir()
+	if err := WriteConfigToDir(cfg, dir); err != nil {
+		t.Fatalf("WriteConfigToDir: %v", err)
+	}
+
+	appToml, err := os.ReadFile(filepath.Join(dir, "config", "app.toml"))
+	if err != nil {
+		t.Fatalf("read app.toml: %v", err)
+	}
+	if strings.Contains(string(appToml), "enabled_legacy_sei_apis") {
+		t.Errorf("nil slice should be omitted from app.toml; got it written")
+	}
+
+	loaded, err := ReadConfigFromDir(dir)
+	if err != nil {
+		t.Fatalf("ReadConfigFromDir: %v", err)
+	}
+	if loaded.EVM.EnabledLegacySeiApis != nil {
+		t.Errorf("missing key should decode as nil; got %v (len %d)",
+			loaded.EVM.EnabledLegacySeiApis, len(loaded.EVM.EnabledLegacySeiApis))
+	}
+}
+
 func TestApplyOverrides_StringSliceRoundTripTOML(t *testing.T) {
 	dir := t.TempDir()
 
@@ -601,6 +643,17 @@ func TestResolveEnv_LegacyPrefix(t *testing.T) {
 	}
 	if !hasDeprecation {
 		t.Error("expected deprecation warning for SEID_ prefix")
+	}
+}
+
+func TestResolveEnv_StringSlice(t *testing.T) {
+	cfg := Default()
+	t.Setenv("SEI_EVM_ENABLED_LEGACY_SEI_APIS", "sei_getLogs,sei_getBlockByNumber")
+
+	ResolveEnv(cfg)
+	got := cfg.EVM.EnabledLegacySeiApis
+	if len(got) != 2 || got[0] != "sei_getLogs" || got[1] != "sei_getBlockByNumber" {
+		t.Errorf("after ResolveEnv: got %v, want [sei_getLogs sei_getBlockByNumber]", got)
 	}
 }
 

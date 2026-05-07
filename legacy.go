@@ -311,6 +311,7 @@ type legacyEVM struct {
 	MaxTxPoolTxs                 uint64   `toml:"max_tx_pool_txs"`
 	Slow                         bool     `toml:"slow"`
 	DenyList                     []string `toml:"deny_list"`
+	EnabledLegacySeiApis         []string `toml:"enabled_legacy_sei_apis"`
 	MaxLogNoBlock                int64    `toml:"max_log_no_block"`
 	MaxBlocksForLog              int64    `toml:"max_blocks_for_log"`
 	MaxSubscriptionsNewHead      uint64   `toml:"max_subscriptions_new_head"`
@@ -628,6 +629,7 @@ func (cfg *SeiConfig) toLegacyApp() legacyAppConfig {
 			MaxTxPoolTxs:                 cfg.EVM.MaxTxPoolTxs,
 			Slow:                         cfg.EVM.Slow,
 			DenyList:                     cfg.EVM.DenyList,
+			EnabledLegacySeiApis:         cfg.EVM.EnabledLegacySeiApis,
 			MaxLogNoBlock:                cfg.EVM.MaxLogNoBlock,
 			MaxBlocksForLog:              cfg.EVM.MaxBlocksForLog,
 			MaxSubscriptionsNewHead:      cfg.EVM.MaxSubscriptionsNewHead,
@@ -895,6 +897,7 @@ func fromLegacy(tm legacyTendermintConfig, app legacyAppConfig) *SeiConfig {
 			MaxTxPoolTxs:                 app.EVM.MaxTxPoolTxs,
 			Slow:                         app.EVM.Slow,
 			DenyList:                     app.EVM.DenyList,
+			EnabledLegacySeiApis:         app.EVM.EnabledLegacySeiApis,
 			MaxLogNoBlock:                app.EVM.MaxLogNoBlock,
 			MaxBlocksForLog:              app.EVM.MaxBlocksForLog,
 			MaxSubscriptionsNewHead:      app.EVM.MaxSubscriptionsNewHead,

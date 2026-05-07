@@ -295,6 +295,9 @@ func DefaultEnrichments() map[string][]FieldOption {
 			WithDescription("RPC methods that should immediately fail (e.g. debug_traceBlockByNumber)."),
 			WithHotReload(),
 		},
+		"evm.enabled_legacy_sei_apis": {
+			WithDescription("Deprecated sei_*/sei2_* JSON-RPC methods served on the EVM HTTP endpoint."),
+		},
 		"evm.max_log_no_block": {
 			WithDescription("Maximum logs returned when block range is open-ended."),
 		},
