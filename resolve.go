@@ -167,6 +167,16 @@ func setReflectValue(v reflect.Value, s string) error {
 			return fmt.Errorf("value %g overflows %s", n, v.Type())
 		}
 		v.SetFloat(n)
+	case reflect.Slice:
+		if v.Type().Elem().Kind() != reflect.String {
+			return fmt.Errorf("unsupported slice element type: %s", v.Type().Elem())
+		}
+		out := parseStringSlice(s)
+		sliceVal := reflect.MakeSlice(v.Type(), len(out), len(out))
+		for i, p := range out {
+			sliceVal.Index(i).SetString(p)
+		}
+		v.Set(sliceVal)
 	default:
 		return fmt.Errorf("unsupported field type: %s", v.Type())
 	}
@@ -189,4 +199,23 @@ func parseFloat64(s string) (float64, error) {
 	var n float64
 	_, err := fmt.Sscanf(s, "%f", &n)
 	return n, err
+}
+
+// parseStringSlice splits a comma-separated string into a slice, trimming
+// whitespace and dropping empty entries. An empty input yields a non-nil
+// zero-length slice so override-set fields always render into TOML.
+func parseStringSlice(s string) []string {
+	if s == "" {
+		return []string{}
+	}
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
 }
