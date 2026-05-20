@@ -259,7 +259,6 @@ func applyValidatorOverrides(cfg *SeiConfig) {
 	cfg.Network.P2P.AllowDuplicateIP = false
 
 	cfg.API.REST.Enable = false
-	cfg.API.GRPC.Enable = false
 	cfg.API.GRPCWeb.Enable = false
 	cfg.Storage.StateStore.Enable = false
 
