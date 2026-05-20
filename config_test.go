@@ -34,8 +34,8 @@ func TestDefaultForMode_ValidatorDisablesServices(t *testing.T) {
 	if cfg.API.REST.Enable {
 		t.Error("validator should have REST API disabled")
 	}
-	if cfg.API.GRPC.Enable {
-		t.Error("validator should have gRPC disabled")
+	if cfg.API.GRPCWeb.Enable {
+		t.Error("validator should have gRPC-web disabled (no current consumer; raw gRPC carries the price-feeder + cosmos-exporter traffic)")
 	}
 	if cfg.EVM.HTTPEnabled {
 		t.Error("validator should have EVM HTTP disabled")
@@ -45,6 +45,14 @@ func TestDefaultForMode_ValidatorDisablesServices(t *testing.T) {
 	}
 	if cfg.Storage.StateStore.Enable {
 		t.Error("validator should have state store disabled")
+	}
+}
+
+func TestDefaultForMode_ValidatorEnablesGRPC(t *testing.T) {
+	cfg := DefaultForMode(ModeValidator)
+
+	if !cfg.API.GRPC.Enable {
+		t.Error("validator should have gRPC enabled (parity with sei-infra canonical EC2 deploy; price feeder + cosmos-exporter dial localhost:9090)")
 	}
 }
 
