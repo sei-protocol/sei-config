@@ -28,7 +28,7 @@ var knownChains = map[string]ChainInfo{
 	"atlantic-2": {
 		ChainID:     "atlantic-2",
 		RPC:         "https://rpc-testnet.sei-apis.com",
-		GenesisTime: "2023-02-22T23:45:12.575885043Z",
+		GenesisTime: "2023-02-24T01:00:00.000000000Z",
 	},
 	"arctic-1": {
 		ChainID:     "arctic-1",
