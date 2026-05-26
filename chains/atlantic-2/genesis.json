@@ -18078,52 +18078,66 @@
     },
     "mint": {
       "minter": {
-        "last_mint_amount": "0.000000000000000000",
+        "start_date": "0001-01-01",
+        "end_date": "0001-01-01",
+        "denom": "usei",
+        "total_mint_amount": "0",
+        "remaining_mint_amount": "0",
+        "last_mint_amount": "0",
         "last_mint_date": "1970-01-01",
-        "last_mint_height": "0",
-        "denom": "usei"
+        "last_mint_height": "0"
       },
       "params": {
         "mint_denom": "usei",
         "token_release_schedule": [
           {
-            "date": "2023-02-25",
+            "start_date": "2023-02-25",
+            "end_date": "2023-02-25",
             "token_release_amount": "300000000000000"
           },
           {
-            "date": "2023-02-26",
+            "start_date": "2023-02-26",
+            "end_date": "2023-02-26",
             "token_release_amount": "225000000000000"
           },
           {
-            "date": "2023-02-27",
+            "start_date": "2023-02-27",
+            "end_date": "2023-02-27",
             "token_release_amount": "180000000000000"
           },
           {
-            "date": "2023-02-28",
+            "start_date": "2023-02-28",
+            "end_date": "2023-02-28",
             "token_release_amount": "165000000000000"
           },
           {
-            "date": "2023-03-01",
+            "start_date": "2023-03-01",
+            "end_date": "2023-03-01",
             "token_release_amount": "135000000000000"
           },
           {
-            "date": "2023-03-04",
+            "start_date": "2023-03-04",
+            "end_date": "2023-03-04",
             "token_release_amount": "120000000000000"
           },
           {
-            "date": "2023-03-08",
+            "start_date": "2023-03-08",
+            "end_date": "2023-03-08",
             "token_release_amount": "112500000000000"
           },
           {
-            "date": "2023-03-15",
+            "start_date": "2023-03-15",
+            "end_date": "2023-03-15",
             "token_release_amount": "112500000000000"
           },
           {
-            "date": "2023-03-21",
+            "start_date": "2023-03-21",
+            "end_date": "2023-03-21",
             "token_release_amount": "75000000000000"
           },
           {
-            "date": "2023-03-28",
+            "start_date": "2023-03-28",
+            "end_date": "2023-03-28",
             "token_release_amount": "75000000000000"
           }
         ]
