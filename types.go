@@ -69,6 +69,17 @@ func Dur(d time.Duration) Duration {
 type WriteMode string
 
 const (
+	// v2 write modes — FlatKV migration lifecycle (sei-chain ≥ v6.5).
+	WriteModeMemiavlOnly        WriteMode = "memiavl_only"
+	WriteModeMigrateEVM         WriteMode = "migrate_evm"
+	WriteModeEVMMigrated        WriteMode = "evm_migrated"
+	WriteModeMigrateAllButBank  WriteMode = "migrate_all_but_bank"
+	WriteModeAllMigratedButBank WriteMode = "all_migrated_but_bank"
+	WriteModeMigrateBank        WriteMode = "migrate_bank"
+	WriteModeFlatKVOnly         WriteMode = "flatkv_only"
+	WriteModeTestOnlyDualWrite  WriteMode = "test_only_dual_write"
+
+	// Deprecated: v1 write modes, accepted only during v1→v2 migration.
 	WriteModeCosmosOnly WriteMode = "cosmos_only"
 	WriteModeDualWrite  WriteMode = "dual_write"
 	WriteModeSplitWrite WriteMode = "split_write"
@@ -77,7 +88,9 @@ const (
 
 func (m WriteMode) IsValid() bool {
 	switch m {
-	case WriteModeCosmosOnly, WriteModeDualWrite, WriteModeSplitWrite, WriteModeEVMOnly:
+	case WriteModeMemiavlOnly, WriteModeMigrateEVM, WriteModeEVMMigrated,
+		WriteModeMigrateAllButBank, WriteModeAllMigratedButBank,
+		WriteModeMigrateBank, WriteModeFlatKVOnly, WriteModeTestOnlyDualWrite:
 		return true
 	default:
 		return false

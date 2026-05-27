@@ -175,22 +175,39 @@ type AppliedMigration struct {
 // Default migration registry
 // ---------------------------------------------------------------------------
 
-// DefaultMigrations returns the set of all known migrations for the sei-config
-// schema. Currently empty since v1 is the initial version — migrations will be
-// added here as the schema evolves.
+// SeidVersionForSchema maps each config schema version to the minimum sei-chain
+// (seid) version that introduced the breaking change requiring it.
 //
-// Example of a future migration:
-//
-//	Migration{
-//	    FromVersion: 1,
-//	    ToVersion:   2,
-//	    Description: "Rename evm.checktx_timeout to evm.check_tx_timeout",
-//	    Migrate: func(cfg *SeiConfig) error {
-//	        // Field was renamed; value is preserved by the struct.
-//	        cfg.Version = 2
-//	        return nil
-//	    },
-//	}
+//	v1 → seid < v6.5   (cosmos_only write mode, legacy EVM routing)
+//	v2 → seid ≥ v6.5   (memiavl_only write mode, FlatKV migration scheme)
+var SeidVersionForSchema = map[int]string{
+	1: "< v6.5",
+	2: "≥ v6.5",
+}
+
+// DefaultMigrations returns all known migrations for the sei-config schema.
+// Each migration corresponds to a sei-chain version boundary; see SeidVersionForSchema.
 func DefaultMigrations() []Migration {
-	return []Migration{}
+	return []Migration{
+		{
+			FromVersion: 1,
+			ToVersion:   2,
+			Description: "seid v6.5: rename WriteMode values to FlatKV migration scheme (cosmos_only→memiavl_only, dual_write→migrate_evm, split_write→evm_migrated)",
+			Migrate: func(cfg *SeiConfig) error {
+				rename := map[WriteMode]WriteMode{
+					WriteModeCosmosOnly: WriteModeMemiavlOnly,
+					WriteModeDualWrite:  WriteModeMigrateEVM,
+					WriteModeSplitWrite: WriteModeEVMMigrated,
+				}
+				if m, ok := rename[cfg.Storage.StateCommit.WriteMode]; ok {
+					cfg.Storage.StateCommit.WriteMode = m
+				}
+				if m, ok := rename[cfg.Storage.StateStore.WriteMode]; ok {
+					cfg.Storage.StateStore.WriteMode = m
+				}
+				cfg.Version = 2
+				return nil
+			},
+		},
+	}
 }
