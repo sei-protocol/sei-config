@@ -739,8 +739,11 @@ func TestNodeMode_IsFullnodeType(t *testing.T) {
 }
 
 func TestWriteMode_Validity(t *testing.T) {
-	if !WriteModeCosmosOnly.IsValid() {
-		t.Error("cosmos_only should be valid")
+	if !WriteModeMemiavlOnly.IsValid() {
+		t.Error("memiavl_only should be valid")
+	}
+	if WriteModeCosmosOnly.IsValid() {
+		t.Error("cosmos_only should not be valid in v2 (deprecated — use migration)")
 	}
 	if WriteMode("invalid").IsValid() {
 		t.Error("'invalid' should not be valid")

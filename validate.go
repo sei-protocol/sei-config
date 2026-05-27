@@ -260,6 +260,9 @@ func validateStorage(r *ValidationResult, cfg *SeiConfig) {
 	if sc.WriteMode != "" && !sc.WriteMode.IsValid() {
 		r.addError("storage.state_commit.write_mode", fmt.Sprintf("invalid write_mode: %q", sc.WriteMode))
 	}
+	if sc.WriteMode == WriteModeTestOnlyDualWrite {
+		r.addWarning("storage.state_commit.write_mode", "test_only_dual_write must not be used in production")
+	}
 	if sc.ReadMode != "" && !sc.ReadMode.IsValid() {
 		r.addError("storage.state_commit.read_mode", fmt.Sprintf("invalid read_mode: %q", sc.ReadMode))
 	}

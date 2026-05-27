@@ -117,7 +117,7 @@ func baseDefaults() *SeiConfig {
 			IAVLDisableFastNode: true,
 			StateCommit: StateCommitConfig{
 				Enable:    true,
-				WriteMode: WriteModeCosmosOnly,
+				WriteMode: WriteModeMemiavlOnly,
 				ReadMode:  ReadModeCosmosOnly,
 			},
 			StateStore: StateStoreConfig{
@@ -128,7 +128,7 @@ func baseDefaults() *SeiConfig {
 				PruneIntervalSeconds: 600,
 				ImportNumWorkers:     1,
 				KeepLastVersion:      true,
-				WriteMode:            WriteModeCosmosOnly,
+				WriteMode:            WriteModeMemiavlOnly,
 				ReadMode:             ReadModeCosmosOnly,
 			},
 			ReceiptStore: ReceiptStoreConfig{

@@ -175,22 +175,33 @@ type AppliedMigration struct {
 // Default migration registry
 // ---------------------------------------------------------------------------
 
-// DefaultMigrations returns the set of all known migrations for the sei-config
-// schema. Currently empty since v1 is the initial version — migrations will be
-// added here as the schema evolves.
+// DefaultMigrations returns all known migrations for the sei-config schema.
 //
-// Example of a future migration:
+// Schema version to seid version mapping:
 //
-//	Migration{
-//	    FromVersion: 1,
-//	    ToVersion:   2,
-//	    Description: "Rename evm.checktx_timeout to evm.check_tx_timeout",
-//	    Migrate: func(cfg *SeiConfig) error {
-//	        // Field was renamed; value is preserved by the struct.
-//	        cfg.Version = 2
-//	        return nil
-//	    },
-//	}
+//	v1 → seid < v6.5   (cosmos_only write mode, legacy EVM routing)
+//	v2 → seid ≥ v6.5   (memiavl_only write mode, FlatKV migration scheme)
 func DefaultMigrations() []Migration {
-	return []Migration{}
+	return []Migration{
+		{
+			FromVersion: 1,
+			ToVersion:   2,
+			Description: "seid v6.5: rename WriteMode values to FlatKV migration scheme (cosmos_only→memiavl_only, dual_write→migrate_evm, split_write→evm_migrated)",
+			Migrate: func(cfg *SeiConfig) error {
+				rename := map[WriteMode]WriteMode{
+					WriteModeCosmosOnly: WriteModeMemiavlOnly,
+					WriteModeDualWrite:  WriteModeMigrateEVM,
+					WriteModeSplitWrite: WriteModeEVMMigrated,
+				}
+				if m, ok := rename[cfg.Storage.StateCommit.WriteMode]; ok {
+					cfg.Storage.StateCommit.WriteMode = m
+				}
+				if m, ok := rename[cfg.Storage.StateStore.WriteMode]; ok {
+					cfg.Storage.StateStore.WriteMode = m
+				}
+				cfg.Version = 2
+				return nil
+			},
+		},
+	}
 }

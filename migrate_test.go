@@ -377,3 +377,96 @@ func TestDefaultMigrations_Valid(t *testing.T) {
 		t.Fatalf("DefaultMigrations failed to register: %v", err)
 	}
 }
+
+// v1ToV2Migration returns the v1→v2 migration from DefaultMigrations for tests
+// that exercise the rename transform directly (bypassing post-migration
+// validation, which rejects unknown/deprecated WriteMode values).
+func v1ToV2Migration(t *testing.T) Migration {
+	t.Helper()
+	for _, m := range DefaultMigrations() {
+		if m.FromVersion == 1 && m.ToVersion == 2 {
+			return m
+		}
+	}
+	t.Fatal("DefaultMigrations missing v1→v2 migration")
+	return Migration{}
+}
+
+// TestMigrateConfig_WriteModeRoundTrip runs the real v1→v2 migration through
+// the registry pipeline (including post-migration validation) and asserts the
+// deprecated cosmos_only write mode is renamed to memiavl_only in both stores.
+func TestMigrateConfig_WriteModeRoundTrip(t *testing.T) {
+	r, err := NewMigrationRegistry(DefaultMigrations()...)
+	if err != nil {
+		t.Fatalf("NewMigrationRegistry: %v", err)
+	}
+
+	cfg := DefaultForMode(ModeFull)
+	cfg.Version = 1
+	cfg.Storage.StateCommit.WriteMode = WriteModeCosmosOnly
+	cfg.Storage.StateStore.WriteMode = WriteModeCosmosOnly
+
+	result, err := r.MigrateConfig(cfg, 2)
+	if err != nil {
+		t.Fatalf("MigrateConfig: %v", err)
+	}
+
+	if cfg.Version != 2 {
+		t.Errorf("version: got %d, want 2", cfg.Version)
+	}
+	if cfg.Storage.StateCommit.WriteMode != WriteModeMemiavlOnly {
+		t.Errorf("state_commit.write_mode: got %q, want %q",
+			cfg.Storage.StateCommit.WriteMode, WriteModeMemiavlOnly)
+	}
+	if cfg.Storage.StateStore.WriteMode != WriteModeMemiavlOnly {
+		t.Errorf("state_store.write_mode: got %q, want %q",
+			cfg.Storage.StateStore.WriteMode, WriteModeMemiavlOnly)
+	}
+	if len(result.Applied) != 1 {
+		t.Fatalf("applied migrations: got %d, want 1", len(result.Applied))
+	}
+}
+
+// TestV1ToV2_WriteModeRename covers every deprecated v1 write mode and asserts
+// it maps to the expected v2 value. The unknown-value case asserts pass-through
+// (the migration only renames known values; validation handles the rest).
+func TestV1ToV2_WriteModeRename(t *testing.T) {
+	m := v1ToV2Migration(t)
+
+	tests := []struct {
+		name string
+		in   WriteMode
+		want WriteMode
+	}{
+		{"cosmos_only renames to memiavl_only", WriteModeCosmosOnly, WriteModeMemiavlOnly},
+		{"dual_write renames to migrate_evm", WriteModeDualWrite, WriteModeMigrateEVM},
+		{"split_write renames to evm_migrated", WriteModeSplitWrite, WriteModeEVMMigrated},
+		{"already-v2 memiavl_only is preserved", WriteModeMemiavlOnly, WriteModeMemiavlOnly},
+		{"unknown value passes through unchanged", WriteMode("future_mode"), WriteMode("future_mode")},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := DefaultForMode(ModeFull)
+			cfg.Version = 1
+			cfg.Storage.StateCommit.WriteMode = tc.in
+			cfg.Storage.StateStore.WriteMode = tc.in
+
+			if err := m.Migrate(cfg); err != nil {
+				t.Fatalf("Migrate: %v", err)
+			}
+
+			if cfg.Version != 2 {
+				t.Errorf("version: got %d, want 2", cfg.Version)
+			}
+			if cfg.Storage.StateCommit.WriteMode != tc.want {
+				t.Errorf("state_commit.write_mode: got %q, want %q",
+					cfg.Storage.StateCommit.WriteMode, tc.want)
+			}
+			if cfg.Storage.StateStore.WriteMode != tc.want {
+				t.Errorf("state_store.write_mode: got %q, want %q",
+					cfg.Storage.StateStore.WriteMode, tc.want)
+			}
+		})
+	}
+}
