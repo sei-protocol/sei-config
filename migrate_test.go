@@ -380,7 +380,7 @@ func TestDefaultMigrations_Valid(t *testing.T) {
 
 // v1ToV2Migration returns the v1→v2 migration from DefaultMigrations for tests
 // that exercise the rename transform directly (bypassing post-migration
-// validation, which rejects unknown/deprecated WriteMode values).
+// validation, which rejects unknown WriteMode values).
 func v1ToV2Migration(t *testing.T) Migration {
 	t.Helper()
 	for _, m := range DefaultMigrations() {

@@ -89,7 +89,11 @@ func (m WriteMode) IsValid() bool {
 	switch m {
 	case WriteModeMemiavlOnly, WriteModeMigrateEVM, WriteModeEVMMigrated,
 		WriteModeMigrateAllButBank, WriteModeAllMigratedButBank,
-		WriteModeMigrateBank, WriteModeFlatKVOnly, WriteModeTestOnlyDualWrite:
+		WriteModeMigrateBank, WriteModeFlatKVOnly, WriteModeTestOnlyDualWrite,
+		// Deprecated v1 modes remain valid: the stable released seid (v6.5.1)
+		// still accepts them and rejects the v2 names. The v1→v2 migration
+		// renames them; validation must not reject configs targeting v6.5.1.
+		WriteModeCosmosOnly, WriteModeDualWrite, WriteModeSplitWrite:
 		return true
 	default:
 		return false
