@@ -83,7 +83,6 @@ const (
 	WriteModeCosmosOnly WriteMode = "cosmos_only"
 	WriteModeDualWrite  WriteMode = "dual_write"
 	WriteModeSplitWrite WriteMode = "split_write"
-	WriteModeEVMOnly    WriteMode = "evm_only"
 )
 
 func (m WriteMode) IsValid() bool {

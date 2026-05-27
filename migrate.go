@@ -175,18 +175,12 @@ type AppliedMigration struct {
 // Default migration registry
 // ---------------------------------------------------------------------------
 
-// SeidVersionForSchema maps each config schema version to the minimum sei-chain
-// (seid) version that introduced the breaking change requiring it.
+// DefaultMigrations returns all known migrations for the sei-config schema.
+//
+// Schema version to seid version mapping:
 //
 //	v1 → seid < v6.5   (cosmos_only write mode, legacy EVM routing)
 //	v2 → seid ≥ v6.5   (memiavl_only write mode, FlatKV migration scheme)
-var SeidVersionForSchema = map[int]string{
-	1: "< v6.5",
-	2: "≥ v6.5",
-}
-
-// DefaultMigrations returns all known migrations for the sei-config schema.
-// Each migration corresponds to a sei-chain version boundary; see SeidVersionForSchema.
 func DefaultMigrations() []Migration {
 	return []Migration{
 		{
