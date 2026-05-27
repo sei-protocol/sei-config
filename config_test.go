@@ -742,8 +742,8 @@ func TestWriteMode_Validity(t *testing.T) {
 	if !WriteModeMemiavlOnly.IsValid() {
 		t.Error("memiavl_only should be valid")
 	}
-	if WriteModeCosmosOnly.IsValid() {
-		t.Error("cosmos_only should not be valid in v2 (deprecated — use migration)")
+	if !WriteModeCosmosOnly.IsValid() {
+		t.Error("cosmos_only should be valid (deprecated, but accepted by stable seid v6.5.1)")
 	}
 	if WriteMode("invalid").IsValid() {
 		t.Error("'invalid' should not be valid")

@@ -115,9 +115,12 @@ func baseDefaults() *SeiConfig {
 			PruningInterval:     "0",
 			SnapshotKeepRecent:  2,
 			IAVLDisableFastNode: true,
+			// WriteMode tracks the stable released seid (v6.5.1), which accepts
+			// cosmos_only and rejects memiavl_only. Nightly/main callers override
+			// to memiavl_only. Bump this default when 6.6.0 ships memiavl_only.
 			StateCommit: StateCommitConfig{
 				Enable:    true,
-				WriteMode: WriteModeMemiavlOnly,
+				WriteMode: WriteModeCosmosOnly,
 				ReadMode:  ReadModeCosmosOnly,
 			},
 			StateStore: StateStoreConfig{
@@ -128,7 +131,7 @@ func baseDefaults() *SeiConfig {
 				PruneIntervalSeconds: 600,
 				ImportNumWorkers:     1,
 				KeepLastVersion:      true,
-				WriteMode:            WriteModeMemiavlOnly,
+				WriteMode:            WriteModeCosmosOnly,
 				ReadMode:             ReadModeCosmosOnly,
 			},
 			ReceiptStore: ReceiptStoreConfig{
