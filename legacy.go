@@ -260,6 +260,12 @@ type legacyStateCommit struct {
 	WriteMode         string `toml:"sc-write-mode"`
 	ReadMode          string `toml:"sc-read-mode"`
 
+	// SkipAppHashValidation lets the consensus engine tolerate AppHash
+	// mismatches with the network. Only legitimate use is an
+	// off-consensus shadow node running an in-flight FlatKV migration on
+	// mainnet data. NEVER set on a validator or public RPC.
+	SkipAppHashValidation bool `toml:"sc-skip-apphash-validation"`
+
 	KeepRecent                uint32  `toml:"sc-keep-recent"`
 	SnapshotInterval          uint32  `toml:"sc-snapshot-interval"`
 	SnapshotMinTimeInterval   uint32  `toml:"sc-snapshot-min-time-interval"`
@@ -580,6 +586,7 @@ func (cfg *SeiConfig) toLegacyApp() legacyAppConfig {
 			AsyncCommitBuffer:         cfg.Storage.StateCommit.AsyncCommitBuffer,
 			WriteMode:                 string(cfg.Storage.StateCommit.WriteMode),
 			ReadMode:                  string(cfg.Storage.StateCommit.ReadMode),
+			SkipAppHashValidation:     cfg.Storage.StateCommit.SkipAppHashValidation,
 			KeepRecent:                cfg.Storage.StateCommit.MemIAVL.SnapshotKeepRecent,
 			SnapshotInterval:          cfg.Storage.StateCommit.MemIAVL.SnapshotInterval,
 			SnapshotMinTimeInterval:   cfg.Storage.StateCommit.MemIAVL.SnapshotMinTimeInterval,
@@ -837,11 +844,12 @@ func fromLegacy(tm legacyTendermintConfig, app legacyAppConfig) *SeiConfig {
 			CompactionInterval:  app.CompactionInterval,
 			IAVLDisableFastNode: app.IAVLDisableFastNode,
 			StateCommit: StateCommitConfig{
-				Enable:            app.StateCommit.Enable,
-				Directory:         app.StateCommit.Directory,
-				AsyncCommitBuffer: app.StateCommit.AsyncCommitBuffer,
-				WriteMode:         WriteMode(app.StateCommit.WriteMode),
-				ReadMode:          ReadMode(app.StateCommit.ReadMode),
+				Enable:                app.StateCommit.Enable,
+				Directory:             app.StateCommit.Directory,
+				AsyncCommitBuffer:     app.StateCommit.AsyncCommitBuffer,
+				WriteMode:             WriteMode(app.StateCommit.WriteMode),
+				ReadMode:              ReadMode(app.StateCommit.ReadMode),
+				SkipAppHashValidation: app.StateCommit.SkipAppHashValidation,
 				MemIAVL: MemIAVLConfig{
 					SnapshotKeepRecent:        app.StateCommit.KeepRecent,
 					SnapshotInterval:          app.StateCommit.SnapshotInterval,

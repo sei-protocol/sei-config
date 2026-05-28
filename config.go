@@ -315,6 +315,13 @@ type StateCommitConfig struct {
 	WriteMode         WriteMode `toml:"write_mode"`
 	ReadMode          ReadMode  `toml:"read_mode"`
 
+	// SkipAppHashValidation, when true, instructs the consensus engine to
+	// tolerate local AppHash divergence from the network's canonical
+	// AppHash. Intended exclusively for off-consensus shadow nodes
+	// running an in-flight FlatKV migration on live mainnet data. NEVER
+	// enable on a validator or a public RPC.
+	SkipAppHashValidation bool `toml:"skip_apphash_validation"`
+
 	MemIAVL MemIAVLConfig `toml:"memiavl"`
 }
 

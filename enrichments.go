@@ -218,6 +218,9 @@ func DefaultEnrichments() map[string][]FieldOption {
 		"storage.state_commit.read_mode": {
 			WithDescription("EVM read routing: cosmos_only, evm_first, split_read."),
 		},
+		"storage.state_commit.skip_apphash_validation": {
+			WithDescription("Tolerate local AppHash divergence from network header AppHash. Only for off-consensus shadow nodes running a live FlatKV migration; NEVER enable on a validator or public RPC."),
+		},
 
 		// Storage — State Store
 		"storage.state_store.enable": {
