@@ -4,12 +4,12 @@
 
 ## Background
 
-A `seid` node's config is spread across `config.toml` (Tendermint), `app.toml` (Cosmos + Sei sections: `evm`, `state-store`, `giga_executor`, …), `client.toml`, cobra flags, and `SEID_*`/`SEI_*` env vars resolved by Viper — loaded in `PersistentPreRunE` (`root.go:79-104` → `InterceptConfigsPreRunHandler` → `interceptConfigs`, in the vendored `sei-cosmos` fork). The **sei-config library already exists and is the asset** (unified `SeiConfig`, `DefaultForMode()`, `Validate()`, a key→env→file registry, `SEI_*`/`SEID_*` resolution, an empty `MigrationRegistry` at `CurrentVersion=1`, atomic two-file IO) — **but nothing calls it yet.** The risk is entirely at the seam into `seid` and round-trip fidelity against *real* config files, not in the library.
+A `seid` node's config is spread across `config.toml` (Tendermint), `app.toml` (Cosmos + Sei sections: `evm`, `state-store`, `giga_executor`, …), `client.toml`, cobra flags, and `SEID_*`/`SEI_*` env vars resolved by Viper — loaded in `PersistentPreRunE` (`root.go:79-104` → `InterceptConfigsPreRunHandler` → `interceptConfigs`, in the vendored `sei-cosmos` fork). The **sei-config library already exists and is the asset** (unified `SeiConfig`, `DefaultForMode()`, `Validate()`, a key→env→file registry, `SEI_*`/`SEID_*` resolution, an empty `MigrationRegistry` at `CurrentVersion=1`, atomic two-file IO) — **but nothing calls it yet.** This project makes `seid` a **consumer** of that library: a second, *experimental* configuration manager that `seid` selects over the legacy loader when an experimental env var (or config setting) says so. The risk is entirely at that selection seam and in round-trip fidelity against *real* config files — not in the library.
 
 ## Goals
 
-- An **env-var-gated** path in `seid` resolving config through the library instead of the legacy loader; default off, legacy path byte-for-byte unchanged.
-- An in-binary `seid config …` group (`doctor` / `generate --mode` / `migrate`) over the library's existing capabilities.
+- `seid` **selects** its configuration manager at startup via an experimental env var/config — legacy loader (default) vs the sei-config-backed manager; legacy path byte-for-byte unchanged.
+- The sei-config-backed manager exposes the library's capabilities in-binary (`doctor` / `generate --mode` / `migrate`).
 - A versioning contract for migrating config safely across `seid` releases.
 - All changes **inside the sei-chain repo** — zero lines of the `sei-cosmos` fork.
 
@@ -17,25 +17,25 @@ A `seid` node's config is spread across `config.toml` (Tendermint), `app.toml` (
 
 Phase 3 (one physical `sei.toml`); owning `seid init`, `client.toml`, secrets, or hot-reload; writing migration functions (`CurrentVersion=1`, nothing to migrate); folding sei-config into sei-chain *now* (stays a dependency — see *Future: fold-in*); mode extensions (`replayer`, `seed`/CRD — [Appendix A](#appendix-a--modes-beyond-the-core)).
 
-## ⚠️ Decision: in-binary `seid config …` group on urfave/cli v3
+## ⚠️ Decision: the experimental manager lives in `seid`, driven by urfave/cli v3
 
-The management UX ships **inside the `seid` binary** as a `seid config …` group on urfave/cli v3 — not a separate `seictl`. One binary, one home for config logic, and CLI-vs-node version skew is impossible (the tool *is* the node binary). The one seam-relevant constraint: **`config` must skip `PersistentPreRunE`** — that hook runs for every subcommand, so without a guard `seid config …` would trigger the legacy interception (and under `SEI_CONFIG_MANAGER=v2`, the gated seam *recursively*), mutating files just to inspect them. Extend the `init` skip at `root.go:97` to also short-circuit `config`. Delegation pattern + accepted costs: [Appendix B](#appendix-b--seid-config-cobraurfave-integration).
+The sei-config-backed manager — including its `config …` surface (`doctor`/`generate`/`migrate`/`show`) — runs **inside the `seid` binary** on urfave/cli v3. There is no separate config tool: `seid` is the single consumer and single binary, so CLI-vs-node version skew is impossible (the tool *is* the node binary). The one seam-relevant constraint: **`config` must skip `PersistentPreRunE`** — that hook runs for every subcommand, so without a guard `seid config …` would trigger the legacy interception (and under `SEI_CONFIG_MANAGER=v2`, the gated seam *recursively*), mutating files just to inspect them. Extend the `init` skip at `root.go:97` to also short-circuit `config`. Delegation pattern + accepted costs: [Appendix B](#appendix-b--seid-config-cobraurfave-integration).
 
 ## Architecture — two repos
 
 | Piece | Repo | Role |
 |---|---|---|
-| `seiconfig` library | sei-config | The brain (exists). Resolution, modes, validate, migrate, legacy IO. **Imported by** sei-chain. |
-| Env-gated seam | sei-chain | `PersistentPreRunE` hook routing config through the library when gated on. |
-| `seid config …` CLI | sei-chain | In-binary surface: `doctor \| generate \| migrate \| show`. |
+| `seiconfig` library | sei-config | The brain (exists). Resolution, modes, validate, migrate, legacy IO. **Consumed by** `seid`. |
+| Selection seam | sei-chain | `PersistentPreRunE` reads the experimental flag; routes to legacy or the sei-config-backed manager. |
+| Experimental manager | sei-chain | In-binary, urfave/cli v3: resolves config + `config …` verbs (`doctor \| generate \| migrate \| show`). |
 
-**Future: fold-in.** sei-config may later collapse into the sei-chain tree so seid owns its own config. The dependency arrow is one-way (sei-chain → sei-config), so that's a `git mv` + import change — **seam unchanged**. Reversible; the only discipline is keeping sei-config a clean leaf, which CLAUDE.md already mandates.
+**Future (deferred).** Two consolidations may follow, both reversible and out of scope now: (1) **fold-in** — sei-config collapses into the sei-chain tree so `seid` owns its own config; the dependency arrow is one-way (sei-chain → sei-config), so it's a `git mv` + import change with the seam unchanged. (2) **controller consolidation** — `sei-k8s-controller` stops calling the library directly and drives config through `seid` itself, making `seid` the single config authority. Both deferred; the only discipline now is keeping sei-config a clean leaf, which CLAUDE.md already mandates.
 
 **The seam contract (load-bearing).** Inject at `root.go:101-103`, after the `init` skip. When gated on, the new path must produce exactly what the legacy path does, because `start.go`/`newApp` read config through **two** channels: `serverCtx.Config` (a fully-populated, `SetRoot`/`ValidateBasic`-passing `*tmcfg.Config`) **and** `serverCtx.Viper` (used as `AppOptions` — every Sei section read via `appOpts.Get("evm.http_port")` dotted lookups). So the gated path **materializes the two legacy files, then re-enters the same Viper read+merge tail** (`sei-cosmos/server/util.go:162-219, 317-323`) and calls `bindFlags` for flag>env>file precedence. **It must not feed `app.New` from the in-memory struct** — that silently drops unmodeled keys. Test for: Viper left unpopulated, flag-precedence inversion, `init`-vs-`start` divergence. `client.toml` is handled before the gate, out of scope.
 
 ## Env-var gate contract
 
-`SEI_CONFIG_MANAGER`, **value-based**: `v2` → new path; unset/`legacy` → legacy (default); anything else → hard startup error (never silent fallback). Read via raw `os.Getenv` atop `PersistentPreRunE`; keeps a clean two-way door. **`SEI_` collision (must-fix):** `seid` already claims `SEI_` via `WithViper("SEI")` and the library uses `SEI_` too — gated on, both resolve the same env vars, fine *only if they agree on destination*. The implementation PR ships a **collision audit** (diff Viper `AutomaticEnv` `SEI_*` keys vs the library's `buildEnvMap`; any disagreement blocks release). Precedence (low→high): mode default < file < `SEI_*` env < flag; `SEI_*` beats deprecated `SEID_*` (stderr warning).
+`SEI_CONFIG_MANAGER` (experimental, opt-in), **value-based**: `v2` → the sei-config-backed manager; unset/`legacy` → legacy (default); anything else → hard startup error (never silent fallback). Read via raw `os.Getenv` atop `PersistentPreRunE`; keeps a clean two-way door. **`SEI_` collision (must-fix):** `seid` already claims `SEI_` via `WithViper("SEI")` and the library uses `SEI_` too — gated on, both resolve the same env vars, fine *only if they agree on destination*. The implementation PR ships a **collision audit** (diff Viper `AutomaticEnv` `SEI_*` keys vs the library's `buildEnvMap`; any disagreement blocks release). Precedence (low→high): mode default < file < `SEI_*` env < flag; `SEI_*` beats deprecated `SEID_*` (stderr warning).
 
 ## Versioning & migration
 
@@ -56,7 +56,7 @@ Keep the prototype's four — `validator / full / seed / archive`. Modes own **s
 - **Migration functions** → when the first breaking change forces `CurrentVersion`→2.
 - **K8s render-at-init + secret-field enforcement** → before any env uses ConfigMap delivery (until then, secret deny-list documented, not enforced).
 - **Mode/CRD alignment** ([Appendix A](#appendix-a--modes-beyond-the-core)) → when generating `replayer` nodes is required.
-- **sei-k8s-controller / JSON output** → second consumer; library already exposes `ConfigIntent`.
+- **Controller consolidation onto `seid`** → `sei-k8s-controller` drives config through `seid` instead of calling the library directly (see *Future*); until then the library exposes `ConfigIntent` for direct use.
 
 ## Open questions
 
