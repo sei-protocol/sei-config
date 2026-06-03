@@ -11,7 +11,7 @@ The **sei-config library already exists and is the asset**: unified `SeiConfig`,
 ## Goals
 
 - An **env-var-gated** path in `seid` that resolves config through the sei-config library instead of the legacy loader. Default off; legacy path byte-for-byte unchanged.
-- An in-binary `seid config …` command group (urfave/cli v3) exposing the library's existing capabilities: `doctor` (validate), `generate --mode` (node-type defaults), `migrate` (schema versioning).
+- An in-binary `seid config …` command group exposing the library's existing capabilities: `doctor` (validate), `generate --mode` (node-type defaults), `migrate` (schema versioning). *(Framework + cobra coexistence: see Decision.)*
 - A versioning contract that lets a config be migrated safely across `seid` releases.
 - Keep all changes **inside the sei-chain repo proper** — touch zero lines of the `sei-cosmos` fork.
 
@@ -25,7 +25,13 @@ The **sei-config library already exists and is the asset**: unified `SeiConfig`,
 
 ## ⚠️ Decision: the CLI surface is an in-binary `seid config …` group (urfave/cli v3)
 
-The management UX (`doctor`/`generate`/`migrate`/`show`) ships **inside the `seid` binary** as a `seid config …` command group on urfave/cli v3 — not a separate `seictl`. One binary, one home for config logic, consistent with seid eventually owning its own config. **Open tension (for cross-review):** seid's root is cobra, so a single cobra command must delegate its args to a urfave `cli.Command`; that boundary (help, flag parsing, completion) is what the next review must validate — earlier review flagged cobra↔urfave coexistence as a real cost, and choosing urfave in-binary accepts it deliberately. The runtime *seam* (below) is unaffected: pure library calls, no CLI framework.
+The management UX (`doctor`/`generate`/`migrate`/`show`) ships **inside the `seid` binary** as a `seid config …` command group on urfave/cli v3 — not a separate `seictl`. One binary, one home for config logic, consistent with seid eventually owning its own config; it also kills CLI-vs-node version skew (the migration tool *is* the node binary). Cross-review settled the cobra↔urfave coexistence:
+
+- **`config` skips the persistent prerun.** `PersistentPreRunE` runs for every subcommand; without a guard `seid config …` would trigger `InterceptConfigsPreRunHandler` (and under `SEI_CONFIG_MANAGER=v2`, the gated seam *recursively*) — mutating files just to inspect them. Extend the `init` skip at `root.go:97` to also short-circuit `config`.
+- **Delegation:** one `config` cobra command with `DisableFlagParsing: true` (already used at `root.go:176,200`) hands the raw arg tail to urfave; urfave owns only the `config` subtree, never global flags. Errors propagate via `RunE` to `main.go`'s `os.Exit`; urfave's exit handler is a no-op.
+- **Accepted costs:** go.mod already carries urfave/cli **v2**; v3 adds a second major version (deliberate). Completion can't introspect a `DisableFlagParsing` subtree, so `config` won't autocomplete (deferred).
+
+The runtime *seam* (below) is otherwise unaffected: pure library calls, no CLI framework.
 
 ## Architecture — two repos
 
@@ -33,7 +39,7 @@ The management UX (`doctor`/`generate`/`migrate`/`show`) ships **inside the `sei
 |---|---|---|
 | `seiconfig` library | sei-config | The brain — exists today. Resolution, modes, validate, migrate, legacy IO. **Imported as a dependency** by sei-chain. |
 | Env-gated seam | sei-chain | `PersistentPreRunE` hook routing config through the library when gated on. |
-| `seid config …` CLI | sei-chain | In-binary operator/CI surface (urfave/cli v3): `doctor \| generate \| migrate \| show`. |
+| `seid config …` CLI | sei-chain | In-binary operator/CI surface: `doctor \| generate \| migrate \| show`. |
 
 **Future: fold-in.** There's a real chance sei-config later collapses into the sei-chain tree so seid owns its own config outright. Because the dependency arrow points only sei-chain → sei-config (never back), that's a `git mv` + import-path change — **the seam contract is unchanged**. Reversible; the only discipline is keeping sei-config a clean leaf (minimal deps, no seid coupling), which CLAUDE.md already mandates.
 
@@ -66,7 +72,7 @@ In: the gate + seam (both channels populated); the collision audit; a **fidelity
 
 ## Deferred (with un-defer trigger)
 
-- **`seid config …` CLI (urfave/cli v3)** → once the seam is proven on a non-prod node (thin wrappers over existing `Validate()`/`DefaultForMode()`; resolve the cobra-host coexistence first).
+- **`seid config …` CLI (urfave/cli v3)** → once the seam is proven on a non-prod node. Thin wrappers over existing `Validate()`/`DefaultForMode()`; must ship a deterministic exit-code scheme (0 = clean/no-op; nonzero = validation-fail/migration-aborted; distinct code for refuse-on-newer-schema) so initContainer/Job orchestration can branch on it.
 - **Unified `sei.toml` on disk (Phase 3)** → after the two-file round-trip is trusted on ≥3 real node fixtures for a release cycle.
 - **Migration functions** → when the first schema-breaking change forces `CurrentVersion` to 2.
 - **K8s render-at-init + secret-field enforcement** → before any environment uses ConfigMap-driven delivery (until then, secret deny-list is documented, not enforced).
@@ -94,4 +100,4 @@ Out of core scope; captured so the analysis isn't lost.
 
 - The deployed `SeiNode` CRD union is `validator / fullNode / archive / replayer` — it has **no `seed`** and uses **`fullNode`** (not `full`). The prototype ships `validator / full / seed / archive`.
 - `seed` produces operator-CLI defaults only and has no CRD target; `replayer` (mandatory snapshot + peers) is first-class in the fleet but absent from the prototype.
-- Aligning the enum — add `replayer`, reconcile `seed`, settle `full` vs `fullNode` casing — is a public-contract change that keys `generate --mode` and the migration registry, so it is a one-way door. **Deferred per owner decision; un-defer when generating `replayer` nodes is required.**
+- Aligning the enum — add `replayer`, reconcile `seed`, settle `full` vs `fullNode` casing — is a one-way door only on the **`generate --mode` CLI surface** (the public contract). The migration registry keys on integer version, not mode strings, so a `v1→v2` migration function can rewrite `cfg.Mode` in-place and absorb the rename cleanly. **Deferred per owner decision; un-defer when generating `replayer` nodes is required.**
