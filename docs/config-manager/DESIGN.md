@@ -1,84 +1,121 @@
 # Configuration manager — design
 
-> This PR ships the design only; implementation lands as separate PRs (sei-config + sei-chain). Phase vocabulary from [CLAUDE.md](../../CLAUDE.md): Phase 2 = today's two-file layout; Phase 3 = unified `sei.toml`.
+> Refined after cross-repo validation against the live `sei-chain`, `sei-k8s-controller`, and the `seictl` sidecar. Phase vocabulary from [CLAUDE.md](../../CLAUDE.md): Phase 2 = today's two-file layout; Phase 3 = unified `sei.toml`. Implementation lands as separate PRs (sei-config + sei-chain + seictl).
 
 ## Background
 
-A `seid` node's config is spread across `config.toml` (Tendermint), `app.toml` (Cosmos + Sei sections: `evm`, `state-store`, `giga_executor`, …), `client.toml`, cobra flags, and `SEID_*`/`SEI_*` env vars resolved by Viper — loaded in `PersistentPreRunE` (`root.go:79-104` → `InterceptConfigsPreRunHandler` → `interceptConfigs`, in the vendored `sei-cosmos` fork). The **sei-config library already exists and is the asset** (unified `SeiConfig`, `DefaultForMode()`, `Validate()`, a key→env→file registry, `SEI_*`/`SEID_*` resolution, an empty `MigrationRegistry` at `CurrentVersion=1`, atomic two-file IO) — **but nothing calls it yet.** This project makes `seid` a **consumer** of that library: a second, *experimental* configuration manager that `seid` selects over the legacy loader when an experimental env var (or config setting) says so. The risk is entirely at that selection seam and in round-trip fidelity against *real* config files — not in the library.
+A `seid` node's config is spread across `config.toml` (Tendermint), `app.toml` (Cosmos + Sei sections: `evm`, `state-store`, `giga_executor`, …), `client.toml`, cobra flags, and `SEID_*`/`SEI_*` env vars resolved by Viper — loaded in `PersistentPreRunE` (`root.go:79-104` → `InterceptConfigsPreRunHandler` → `interceptConfigs`, in the vendored `sei-cosmos` fork). The **sei-config library already exists** (unified `SeiConfig`, `DefaultForMode()`, `Validate()`, a key→env→file registry, `SEI_*`/`SEID_*` resolution, a `MigrationRegistry` at `CurrentVersion=2` with one shipped v1→v2 migration, atomic two-file IO). This project makes `seid` a **consumer**: a second, *experimental* configuration manager that `seid` selects over the legacy loader when an experimental env var says so.
+
+**Where the risk actually lives.** It is at the selection seam **and in the library's legacy round-trip fidelity** — the latter is not free. The clean mental model: **the registry/unified key space is a strict superset of the keys the legacy two-file IO round-trips, and that difference is a silent-drop surface.** `toml.DecodeFile` ignores unknown keys and the encoder writes only modeled fields, so any real `seid` key the legacy mapper doesn't model is dropped — or, on a tag mismatch, corrupted — on a read→write, silently. That set is non-empty today (see MVP). "The library is the asset" holds, with this asterisk.
 
 ## Goals
 
-- `seid` **selects** its configuration manager at startup via an experimental env var/config — legacy loader (default) vs the sei-config-backed manager; legacy path byte-for-byte unchanged.
-- The sei-config-backed manager exposes the library's capabilities in-binary (`doctor` / `generate --mode` / `migrate`).
-- A versioning contract for migrating config safely across `seid` releases.
-- All changes **inside the sei-chain repo** — zero lines of the `sei-cosmos` fork.
+- `seid` **selects** its configuration manager at startup via an experimental env var — legacy loader (default) vs the sei-config-backed manager; legacy path byte-for-byte unchanged.
+- The manager exposes the library in-binary (`doctor` / `generate --mode` / `migrate`).
+- A versioning contract **keyed on seid release** that migrates config safely across releases.
+- All `seid`-side changes **inside the sei-chain repo** — zero lines of the `sei-cosmos` fork.
 
 ## Non-goals
 
-Phase 3 (one physical `sei.toml`); owning `seid init`, `client.toml`, secrets, or hot-reload; writing migration functions (`CurrentVersion=1`, nothing to migrate); folding sei-config into sei-chain *now* (stays a dependency — see *Future: fold-in*); mode extensions (`replayer`, `seed`/CRD — [Appendix A](#appendix-a--modes-beyond-the-core)).
+Phase 3 (`sei.toml`); owning `seid init`, `client.toml`, secrets, or hot-reload; **day-2 config mutation** — running-node changes go through the controller's `ConfigPatchTask` raw-TOML merge, which bypasses the library entirely; bringing that under sei-config is a *named follow-up*, not this scope; folding sei-config into sei-chain *now*; mode extensions (dedicated `replayer`, `seed`/CRD reconciliation — [Appendix A](#appendix-a--modes-beyond-the-core)).
 
-## ⚠️ Decision: the experimental manager lives in `seid`, driven by urfave/cli v3
+## ⚠️ Decision: the experimental manager + user CLI live in `seid`
 
-The sei-config-backed manager — including its `config …` surface (`doctor`/`generate`/`migrate`/`show`) — runs **inside the `seid` binary** on urfave/cli v3. There is no separate config tool: `seid` is the single consumer and single binary, so CLI-vs-node version skew is impossible (the tool *is* the node binary). The one seam-relevant constraint: **`config` must skip `PersistentPreRunE`** — that hook runs for every subcommand, so without a guard `seid config …` would trigger the legacy interception (and under `SEI_CONFIG_MANAGER=v2`, the gated seam *recursively*), mutating files just to inspect them. Extend the `init` skip at `root.go:97` to also short-circuit `config`. Delegation pattern + accepted costs: [Appendix B](#appendix-b--seid-config-cobraurfave-integration).
+The sei-config-backed manager — including the `config …` surface (`doctor`/`generate`/`migrate`/`show`) — runs **inside the `seid` binary** (urfave/cli v3 under a cobra delegate). Putting the *user-facing CLI* in the node binary means the CLI's view of config cannot drift from the node's. Seam constraint: **`config` must skip `PersistentPreRunE`** — that hook runs for every subcommand, so without a guard `seid config …` would trigger the legacy interception (and under `SEI_CONFIG_MANAGER=v2`, the gated seam *recursively*), mutating files just to inspect them. Extend the `init` skip at `root.go:97` to also short-circuit `config`. Delegation + costs: [Appendix B](#appendix-b--seid-config-cobraurfave-integration).
 
-## Architecture — two repos
+> **⚠️ This does *not* eliminate library-version skew — a `seictl` sidecar is already the production config writer.** The controller does **not** call sei-config directly: it builds a `ConfigIntent` and ships it over HTTP to a **`seictl` sidecar** (`seictl@v0.0.55`) in the node pod, which runs `ResolveIntent`/`WriteConfigToDir` onto the shared PVC `seid` reads. So config is written by the *sidecar's* pinned sei-config and read by the *seid binary's* pinned sei-config — two independently-versioned copies touch the same files. The in-binary user CLI removes *CLI*↔node skew; it does **not** remove *sidecar*↔*seid* library skew. See Architecture and Versioning.
 
-| Piece | Repo | Role |
-|---|---|---|
-| `seiconfig` library | sei-config | The brain (exists). Resolution, modes, validate, migrate, legacy IO. **Consumed by** `seid`. |
-| Selection seam | sei-chain | `PersistentPreRunE` reads the experimental flag; routes to legacy or the sei-config-backed manager. |
-| Experimental manager | sei-chain | In-binary, urfave/cli v3: resolves config + `config …` verbs (`doctor \| generate \| migrate \| show`). |
+## Architecture — four components, three sei-config pins
 
-**Future (deferred).** Two consolidations may follow, both reversible and out of scope now: (1) **fold-in** — sei-config collapses into the sei-chain tree so `seid` owns its own config; the dependency arrow is one-way (sei-chain → sei-config), so it's a `git mv` + import change with the seam unchanged. (2) **controller consolidation** — `sei-k8s-controller` stops calling the library directly and drives config through `seid` itself, making `seid` the single config authority. Both deferred; the only discipline now is keeping sei-config a clean leaf, which CLAUDE.md already mandates.
+| Piece | Repo / image | Role | sei-config pin |
+|---|---|---|---|
+| `seiconfig` library | sei-config | Resolution, modes, validate, migrate, legacy IO | — (it *is* the lib) |
+| Gated manager + reader + CLI | sei-chain (`seid`) | Selects legacy vs sei-config; reads the two files at boot; hosts the user CLI | seid go.mod |
+| Intent producer | sei-k8s-controller | Builds `ConfigIntent` from the CRD; **does not write config itself** | controller go.mod |
+| Intent resolver / writer | `seictl` sidecar | Receives intent over HTTP; `ResolveIntent`→`WriteConfigToDir` onto the shared PVC | **sidecar image** |
 
-**The seam contract (load-bearing).** Inject at `root.go:101-103`, after the `init` skip. When gated on, the new path must produce exactly what the legacy path does, because `start.go`/`newApp` read config through **two** channels: `serverCtx.Config` (a fully-populated, `SetRoot`/`ValidateBasic`-passing `*tmcfg.Config`) **and** `serverCtx.Viper` (used as `AppOptions` — every Sei section read via `appOpts.Get("evm.http_port")` dotted lookups). So the gated path **materializes the two legacy files, then re-enters the same Viper read+merge tail** (`sei-cosmos/server/util.go:162-219, 317-323`) and calls `bindFlags` for flag>env>file precedence. **It must not feed `app.New` from the in-memory struct** — that silently drops unmodeled keys. Test for: Viper left unpopulated, flag-precedence inversion, `init`-vs-`start` divergence. `client.toml` is handled before the gate, out of scope.
+**On-disk fidelity is determined by the sidecar's pin, not the controller's** — bumping sei-config in the controller's go.mod does nothing to what's written. The sidecar image drifts independently from the seid image today (`sidecarImageDrifted` is tracked separately). **Must-do:** pin the sidecar image to the seid image (or have `seid` validate what the sidecar wrote — see Versioning), else two differently-pinned libraries write/read the same files and fidelity is undefined.
+
+**Future (deferred — but now load-bearing for *correctness*, not just cleanup).** (1) **fold-in** — sei-config collapses into the sei-chain tree (`git mv` + import change; one-way arrow sei-chain → sei-config; seam unchanged). (2) **consolidation** — the controller drives config *through `seid`* so the resolver and the node share one binary/lib, **collapsing the three pins to one**. (2) is the real fix for write-path skew.
+
+**The seam contract (load-bearing).** Inject at `root.go:101-103`, after the `init` skip. `start.go`/`newApp` read config through **two** channels: `serverCtx.Config` (a `SetRoot`/`ValidateBasic`-passing `*tmcfg.Config`) and `serverCtx.Viper` (`AppOptions` — every Sei section via `appOpts.Get("evm.http_port")`). The gated path **materializes the two legacy files, then re-enters the same Viper read+merge tail** (`util.go:162-219, 317-323`) + `bindFlags` for flag>env>file precedence — it must **not** feed `app.New` from the in-memory struct.
+
+> **⚠️ Fidelity is bounded by `legacy.go` coverage, not by the read channel.** Materialization runs through `toLegacyApp()`, which encodes only modeled fields — so an unmodeled key is dropped *at materialization*, and re-entering Viper then reads a file already missing it. Re-entering Viper does not by itself deliver the safety property. The seam is sound only once the legacy mapper covers every real key (MVP fidelity test) **or** via passthrough overlay: read the operator's *existing* files into Viper first, overlay only library-owned keys, never marshal a fresh file from the struct.
+>
+> **⚠️ Hand-edit safety (invariant).** The materialize round-trip must be **byte-stable for keys the library doesn't model and preserve comments** — an unchanged input yields an unchanged file. If that can't be guaranteed, materialize to a derived path (`${home}/config/.managed/`) and feed Viper from there, leaving the operator's authored files as the untouched source of truth. "Hand-edits win" until legacy removal.
 
 ## Env-var gate contract
 
-`SEI_CONFIG_MANAGER` (experimental, opt-in), **value-based**: `v2` → the sei-config-backed manager; unset/`legacy` → legacy (default); anything else → hard startup error (never silent fallback). Read via raw `os.Getenv` atop `PersistentPreRunE`; keeps a clean two-way door. **`SEI_` collision (must-fix):** `seid` already claims `SEI_` via `WithViper("SEI")` and the library uses `SEI_` too — gated on, both resolve the same env vars, fine *only if they agree on destination*. The implementation PR ships a **collision audit** (diff Viper `AutomaticEnv` `SEI_*` keys vs the library's `buildEnvMap`; any disagreement blocks release). Precedence (low→high): mode default < file < `SEI_*` env < flag; `SEI_*` beats deprecated `SEID_*` (stderr warning).
+`SEI_CONFIG_MANAGER` (experimental, opt-in), **value-based**: `v2` → the sei-config manager; unset/`legacy` → legacy (default); anything else → hard startup error (never silent fallback). Read via raw `os.Getenv` atop `PersistentPreRunE`; clean two-way door. Precedence (low→high): mode default < file < `SEI_*` env < flag; `SEI_*` beats deprecated `SEID_*` (stderr warning).
+
+**`SEI_` collision audit (must-fix), refined.** `seid` claims `SEI_` via `WithViper("SEI")` (`root.go:74`) and the library uses `SEI_` too. *Under the seam, env is resolved by Viper's `AutomaticEnv`, not the library's `ResolveEnv`* — so at runtime the library's env scheme is moot; but `ResolveEnv` **is** live in the CLI/controller paths. Viper's name scheme (`SEID_MINIMUM_GAS_PRICES`, derived from flags/dotted keys) and the library's (`SEI_CHAIN_MIN_GAS_PRICES`, derived from unified struct tags) **build names by different rules and barely overlap lexically**. So the audit must assert **per-field destination-equivalence** and flag **dual-reachable** settings (one setting reachable under two env names, possibly with divergent precedence) — *not* merely diff matching `SEI_*` strings, which goes green while the real hazard hides.
 
 ## Versioning & migration
 
-A `schema_version` integer owned by the registry, **decoupled from the seid release** (bumps only on shape change). `doctor` compares it to `CurrentVersion`: newer → refuse to start; older → "migration available." **No auto-migrate on boot** — migration is explicit (`seid config migrate`), dry-run by default, `.bak` before `--write`, no-ops when current; auto-migrate + no-downgrade is a per-pod one-way door that breaks rollback. The MVP seam only **stamps `schema_version` on write**; `doctor`/refuse-on-newer/migrate ride with the (deferred) CLI and the first real migration.
+`schema_version` is a **semver string tracking the seid release in which config shape last changed** (e.g. `v6.5.0`) — owner decision. It advances **only on a shape change**, so `6.4.1` and `6.4.2` share a version; "track seid release" and "bump only on shape change" reconcile via this sparse tag. Comparison is **semver via `golang.org/x/mod/semver`** — the convention sei-chain adopted in [PR #3153](https://github.com/sei-protocol/sei-chain/pull/3153) to fix the lexical-sort bug ([cosmos-sdk#11707](https://github.com/cosmos/cosmos-sdk/issues/11707): natural string order puts `v0.9` after `v0.10` → wrong upgrade resolved → consensus panic). `x/mod` is already a dependency of every consumer, so it adds no new transitive burden.
+
+Because **we author schema versions**, gate every value with `semver.IsValid()` and **fail loud** — a malformed `schema_version` is a `SeverityError` and the manager refuses to start; never let `Compare` silently coerce an invalid into "oldest" and fire a wrong migration. Strip prerelease (`-nightly`/git-describe) before shape comparison. `CurrentVersion int = 2` → `CurrentSchemaVersion = "v6.5.0"`; `SeiConfig.Version int` → `string`.
+
+Boot rule under `v2` (direction-keyed):
+
+| on-disk vs `CurrentSchemaVersion` | behavior | why |
+|---|---|---|
+| **older** | start; migrate **in-memory only**, no disk rewrite; WARN + metric | reversible; old binary still finds its file; no systemd boot-brick |
+| **equal** | start | nominal |
+| **newer** | refuse to start (`SeverityError`) | binary can't interpret a future shape |
+
+The principle is **"no auto-*rewrite*"** — the hazard is the disk write, not the transform. `seid config migrate --write` (dry-run default, `.bak` first) is the only path that *persists* an upgrade; never a boot prerequisite. The migration registry re-keys on `IntroducedIn`/`PreviousVersion` semver; booting applies every migration whose `IntroducedIn ∈ (on-disk, CurrentSchemaVersion]`, ascending. The shipped entry is `SchemaBaseline → v6.5.0` (the WriteMode rename). **Stable-vs-nightly (seid v6.5.1, sei-chain PR #27) is a *defaults* difference, not a shape difference** — it lives in `DefaultForMode`/the `WriteMode` enum, never a separate schema version; a guard test forbids two channels needing structurally different field sets under one version. **Controller coupling:** the controller derives `ConfigIntent.TargetVersion` from the pod's seid **image tag** (the same namespace the node boots under), so version skew is caught accurately; an unparseable tag (`latest`, digest pin) omits it and falls back to the default. The node-side **refuse-to-start on any unmodeled key** is the non-cuttable backstop for sidecar↔seid skew. **Invariant:** semver order == schema-capability order across release branches.
+
+*(No live configs carry the legacy integer version — the manager has not rolled out — so no integer→semver on-disk shim is needed; this is a clean slate.)*
 
 ## Modes
 
-Keep the prototype's four — `validator / full / seed / archive`. Modes own **static, role-shaped defaults at generate time only** (which APIs/EVM/state-store are on, pruning, listen addresses); **nothing at runtime**. Per-node identity (`moniker`, `persistent_peers`, `external_address`, keys) comes from operator/controller overrides, **never** a mode default — guard test: `Validate()` fails CI if an identity key appears in any mode's defaults. `DefaultForMode(mode)` stays pure. (Taxonomy nuance → [Appendix A](#appendix-a--modes-beyond-the-core).)
+Keep the four — `validator / full / seed / archive`. Modes own **static, role-shaped defaults at generate time only**; **nothing at runtime**. Per-node identity (`moniker`, `persistent_peers`, `external_address`, keys) is **never** a mode default — guard test: `Validate()` fails CI if an identity key appears in any mode's defaults. `DefaultForMode(mode)` stays pure. **The controller already maps its CRD node types to strict library modes** (`fullNode→ModeFull`, `replayer→ModeFull`, `archive→ModeArchive`, `validator→ModeValidator`; `internal/planner/*.go`), so the `full`/`fullNode` enum mismatch does **not** break today — but the translation lives controller-side and must stay guard-tested. `ModeSeed` is never produced by the controller. (Taxonomy → [Appendix A](#appendix-a--modes-beyond-the-core).)
 
 ## MVP — the first implementation PR
 
-**Value:** *a real `seid` home dir resolves through the library and produces a node that behaves identically to the legacy path, behind an off-by-default flag* — which de-risks everything downstream. **In:** gate + seam (both channels); the collision audit; a **fidelity test against a sanitized real `config.toml`/`app.toml`** asserting every operator-set key `seid` consumes survives read→write (the non-negotiable safety property); a `KNOWN_UNMAPPED_FIELDS` list (e.g. `ChainID` lives in genesis.json). **Done:** legacy path provably unchanged with flag unset; gated path starts identically and refuses-to-start on `Validate` errors; `make ci` green.
+**Value:** *a real `seid` home dir resolves through the library and produces a node that behaves identically to the legacy path, behind an off-by-default flag* — which de-risks everything downstream. **In:**
+
+- gate + seam (both channels);
+- **fidelity test (non-self-referential):** diff against an external key inventory of a sanitized **real** `config.toml`/`app.toml` (the rendered `initAppConfig()` template) — **not** `WriteConfigToDir`→`ReadConfigFromDir`, which shares the lossy mapper and structurally cannot catch a gap;
+- **close the legacy-coverage gap the test fails on.** Today that set is: missing `[admin_server]`, `[rosetta]`, evm `trace_bake_*` + `enable_parallelized_block_trace`, `[state-commit.flatkv]`, `evm-ss-split`/`evm-ss-separate-dbs`, `sc-historical-proof-*`; and **tag corruptions** `[eth_block_test]`→`[eth_blocktest]`, `ss-evm-db-directory`→`evm-ss-db-directory`. *Cut option:* a fail-closed guard that refuses to start on any unmodeled key in the operator's file, deferring the field additions (un-defer immediately for archive/RPC fleets, where these keys are present from boot);
+- **`KNOWN_UNMAPPED_FIELDS` enforced, not just documented:** mark genesis-sourced/unmapped keys (starting with `chain.chain_id`) **non-settable** — `ValidateIntent` and `ApplyOverrides` reject them. Else a controller `spec.Overrides` entry returns `Valid:true` and the value silently vanishes on write;
+- **node refuses-to-start on any unmodeled key** (the backstop for sidecar↔seid skew);
+- the refined collision audit; replicate the `SEI_LOG_LEVEL` extrapolation (`util.go:187-217`) — resolves OQ1.
+
+**Done:** legacy path provably unchanged with the flag unset; gated path starts identically and refuses-to-start on `Validate` errors *and* on unmodeled keys; the fidelity test is green against a real fixture; `make ci` green.
 
 ## Deferred (un-defer trigger)
 
-- **`seid config …` CLI** → once the seam is proven on a non-prod node. Thin wrappers over `Validate()`/`DefaultForMode()`; must ship a deterministic exit-code scheme (0 = clean/no-op; nonzero = validation-fail/migration-aborted; distinct code for refuse-on-newer) for initContainer/Job use.
+- **`seid config …` CLI** → once the seam is proven on a non-prod node. Deterministic exit-code scheme (0 = clean/no-op; nonzero = validation-fail/migration-aborted; distinct code for refuse-on-newer) for initContainer/Job use.
+- **Day-2 `ConfigPatchTask` under the library** → when unvalidated raw-TOML merges on running nodes cause an incident or block a config the registry should own.
 - **Unified `sei.toml` (Phase 3)** → after the two-file round-trip is trusted on ≥3 real fixtures for a release cycle.
-- **Migration functions** → when the first breaking change forces `CurrentVersion`→2.
+- **Next migration function** → when a shape change advances `CurrentSchemaVersion` past `v6.5.0` (the baseline→`v6.5.0` entry already ships).
 - **K8s render-at-init + secret-field enforcement** → before any env uses ConfigMap delivery (until then, secret deny-list documented, not enforced).
-- **Mode/CRD alignment** ([Appendix A](#appendix-a--modes-beyond-the-core)) → when generating `replayer` nodes is required.
-- **Controller consolidation onto `seid`** → `sei-k8s-controller` drives config through `seid` instead of calling the library directly (see *Future*); until then the library exposes `ConfigIntent` for direct use.
+- **Mode/CRD alignment** ([Appendix A](#appendix-a--modes-beyond-the-core)) → when generating dedicated `replayer` config is required.
+- **Controller/sidecar consolidation onto `seid`** → collapses the three sei-config pins to one; the real fix for write-path skew. Until then the library exposes `ConfigIntent` for the sidecar's use.
 
 ## Open questions
 
-1. Replicate `SEI_LOG_LEVEL` extrapolation (`util.go:187-217`) in the gated path, or accept a documented delta?
-2. Where does on-disk `schema_version` live for legacy-only checkouts — a managed header in `app.toml`, or only the future `sei.toml`?
-3. Final `seid config …` naming/flags.
+1. ~~Replicate `SEI_LOG_LEVEL` extrapolation, or accept a delta?~~ → **Resolved: replicate.** Cheap and deterministic; accepting a delta violates the "behaves identically" MVP property and silently no-ops module-level debug toggles (`SEI_LOG_LEVEL=consensus:debug,*:info`) during exactly the incident where you'd flip the gate.
+2. Where does on-disk `schema_version` live so **both** the gated manager and the legacy loader can read it — a managed header in `app.toml`, or only the future `sei.toml`? Interacts with refuse-to-start, which must read the stamped version.
+3. Mechanism for pinning the `seictl` sidecar image to the seid image until consolidation lands.
+4. Final `seid config …` naming/flags.
 
 ## Cross-repo coordination
 
-**This PR (sei-config):** the design; any library contract change (e.g. version stamping) follows as a sei-config PR, tagged for sei-chain to pin. **Follow-up sei-chain PR(s):** the env-gated seam + fidelity test + collision audit, then the in-binary CLI. The seam PR must not merge until the collision audit passes and the fidelity test is green.
+Four repos move together: **sei-config** (library contract — version stamping, registry/`KNOWN_UNMAPPED` enforcement, the semver-validated comparator), **sei-chain** (the gated seam + non-self-referential fidelity test + refined collision audit + user CLI), **seictl** (the sidecar that resolves/writes — *its* pin determines on-disk fidelity), **sei-k8s-controller** (intent + image-tag→`TargetVersion`). The seam PR must not merge until the fidelity test is green and the collision audit passes. Bumping `CurrentSchemaVersion` is a cross-repo event: the sidecar and seid pins must move together, or the writer and reader disagree on shape.
 
 ---
 
 ## Appendix A — modes beyond the core
 
-Out of core scope; captured so the analysis isn't lost.
-
-- The deployed `SeiNode` CRD union is `validator / fullNode / archive / replayer` — **no `seed`**, and **`fullNode`** (not `full`). The prototype ships `validator / full / seed / archive`.
-- `seed` produces operator-CLI defaults only and has no CRD target; `replayer` (mandatory snapshot + peers) is first-class in the fleet but absent from the prototype.
-- Aligning the enum — add `replayer`, reconcile `seed`, settle `full` vs `fullNode` — is a one-way door only on the **`generate --mode` CLI surface** (the public contract). The migration registry keys on integer version, not mode strings, so a `v1→v2` migration function rewrites `cfg.Mode` in-place and absorbs the rename cleanly. **Deferred per owner decision; un-defer when generating `replayer` nodes is required.**
+- The deployed `SeiNode` CRD union is `validator / fullNode / archive / replayer` — **no `seed`**, and **`fullNode`** (not `full`). The library ships `validator / full / seed / archive`.
+- **The controller already translates** CRD → library mode (`fullNode→ModeFull`, `replayer→ModeFull`, `archive→ModeArchive`, `validator→ModeValidator`; `internal/planner/*.go`). A raw CRD string never reaches the library, so the `full`/`fullNode` mismatch is **not a live break**. Note: `replayer`/`fullNode` role identity is *erased* at the intent boundary (both → `full` + overrides); `seed` has no CRD target.
+- Aligning the library enum — add dedicated `replayer`, reconcile `seed`, settle `full` vs `fullNode` — is a one-way door only on the **`generate --mode` CLI surface**. The migration registry keys on version, not mode strings, so a future migration can rewrite `cfg.Mode` in place. **Deferred; un-defer when generating dedicated `replayer` config is required.** Keep a guard test asserting every CRD value maps to a valid `NodeMode` or is explicitly rejected.
 
 ## Appendix B — `seid config` cobra↔urfave integration
 
+- This is the **user-facing** CLI in the node binary — distinct from the `seictl` *sidecar* that resolves intent in-pod.
 - **Delegation:** one `config` cobra command with `DisableFlagParsing: true` (already used at `root.go:176,200`) hands the raw arg tail to the urfave `cli.Command`; urfave owns only the `config` subtree and never sees global cobra flags. Errors propagate via `RunE` to `main.go`'s `os.Exit`; urfave's own exit handler is a no-op.
 - **Accepted costs:** go.mod already carries urfave/cli **v2** (load-bearing in `sei-db/…/litt/cli`); v3 adds a second major version — legal, deliberate. Shell completion can't introspect a `DisableFlagParsing` subtree, so `config` subcommands won't autocomplete (deferred).
