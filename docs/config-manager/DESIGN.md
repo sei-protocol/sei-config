@@ -1,5 +1,10 @@
 # Configuration manager — design
 
+**Status:** Draft
+**Date:** 2026-06-06
+**Impact:** sei-config-manager — https://app.notion.com/p/377db6ff6057805fb280fe06f2c10a00
+**Authors:** bdchatham
+
 > Refined after cross-repo validation against the live `sei-chain`, `sei-k8s-controller`, and the `seictl` sidecar. Phase vocabulary from [CLAUDE.md](../../CLAUDE.md): Phase 2 = today's two-file layout; Phase 3 = unified `sei.toml`. Implementation lands as separate PRs (sei-config + sei-chain + seictl).
 
 ## Background
@@ -148,3 +153,9 @@ The config-introspection API **lives on the admin endpoint** — the existing lo
 **Allowlist / default-deny, enforced at the admin endpoint.** Resolved config is secret-bearing (priv-validator/TLS key paths, `tx_index.psql_conn` credentials, node key, admin address, peer topology). A field may cross the node boundary **only if explicitly allowlisted** — exposing a value is an opt-in act, enforced server-side at the source, so nothing sensitive leaks by default or by omission.
 
 **Fleet visibility:** because the admin endpoint is loopback-only, the network/fleet view is the sidecar's job — it calls the local admin endpoint in-pod and relays only the **allowlisted projection** outward over its authenticated control-plane channel. The control plane then sweeps sidecars and asks "show every node where `v2 ≠ legacy`," turning the default-flip into a data-driven decision instead of a leap. The split is deliberate: the admin endpoint owns the API and enforces the allowlist; the sidecar is a thin authenticated relay that never sees more than the allowlisted projection. **Not an MVP deliverable.**
+
+## References
+
+- PR [sei-protocol/sei-config#31](https://github.com/sei-protocol/sei-config/pull/31) — this design (refined after cross-repo validation + 4-lens cross-review)
+- PR [sei-protocol/sei-config#30](https://github.com/sei-protocol/sei-config/pull/30) — original merged config-manager design (the baseline this refines)
+- Impact bet **Sei Config Manager** — [Notion](https://app.notion.com/p/377db6ff6057805fb280fe06f2c10a00) (Q2 2026 · Platform / Impact Hub)
