@@ -96,6 +96,7 @@ The slice spans **sei-chain** (the gated seam + fidelity test + collision audit)
 - **K8s render-at-init + secret-field enforcement** → before any env uses ConfigMap delivery (until then, secret deny-list documented, not enforced).
 - **Mode/CRD alignment** ([Appendix A](#appendix-a--modes-beyond-the-core)) → when generating dedicated `replayer` config is required.
 - **Controller/sidecar consolidation onto `seid`** → collapses the three sei-config pins to one; the real fix for write-path skew. Until then the library exposes `ConfigIntent` for the sidecar's use.
+- **Continuous canonical materialization + config-introspection endpoint** ([Appendix C](#appendix-c--continuous-canonical-materialization-future), [Appendix D](#appendix-d--sidecar-config-introspection-endpoint-future)) → builds on the seam to make the rollout observable fleet-wide; un-defer once the seam MVP proves out on a non-prod node.
 
 ## Open questions
 
@@ -121,3 +122,29 @@ Four repos move together: **sei-config** (library contract — version stamping,
 - This is the **user-facing** CLI in the node binary — distinct from the `seictl` *sidecar* that resolves intent in-pod.
 - **Delegation:** one `config` cobra command with `DisableFlagParsing: true` (already used at `root.go:176,200`) hands the raw arg tail to the urfave `cli.Command`; urfave owns only the `config` subtree and never sees global cobra flags. Errors propagate via `RunE` to `main.go`'s `os.Exit`; urfave's own exit handler is a no-op.
 - **Accepted costs:** go.mod already carries urfave/cli **v2** (load-bearing in `sei-db/…/litt/cli`); v3 adds a second major version — legal, deliberate. Shell completion can't introspect a `DisableFlagParsing` subtree, so `config` subcommands won't autocomplete (deferred).
+
+## Appendix C — Continuous canonical materialization (future)
+
+> Not an MVP deliverable. An extension of the seam that makes the rollout self-proving. (Avoids the word "shadow" — overloaded — in favor of **active vs passive resolution**.)
+
+Produce the canonical config form **on every boot, regardless of which manager is active**, so the canonical artifact is always present, validated, and `schema_version`-stamped *before* `v2` is ever switched on:
+
+- The gate picks the **active** resolver (legacy or `v2`); its result is authoritative and boots the node.
+- The other resolver runs **passively** — it resolves and materializes the canonical form (unified `SeiConfig` → legacy TOML, **file-tier**) into `${home}/config/.managed/`, but never feeds the running node.
+
+What it buys:
+- **Warm cutover.** Flipping `v2` *promotes an artifact that already exists and has been validated on this node*, not a cold first-run generation.
+- **Fleet-wide fidelity/skew canary.** `.managed/` continuously diffs against the authored `config/` (library coverage gaps) and, in the controller fleet, against what the sidecar wrote (sidecar↔seid pin skew) — on real production config, not a CI fixture.
+- **Migration dark-launch.** If `.managed/` is **persisted + `schema_version`-stamped across boots** (vs the seam MVP's per-boot-ephemeral treatment), the migration machinery is exercised continuously, so the first real migration at cutover is a no-op rather than a debut. Safe because `.managed/` is **non-authoritative** while `v2` is off — it never touches the operator's authored files, so it does not reawaken the boot-time-rewrite/reversibility concern (which is strictly about authored files).
+
+Invariants (carried from the seam): `.managed/` stays **file-tier** (pre-env/flags, so it remains a valid `v2` read-source and `flag > env > file` precedence holds); the passive path is **non-fatal** (defer/recover — a materialization bug logs and is swallowed, never affects the active boot), **write-isolated** to `.managed/`, and **kill-switchable**, so "legacy path unchanged" stays literally true. This is a real scope addition (an always-on subsystem, leaning on the versioning slice for stamping) — its own decision, deliberately **outside the seam MVP**.
+
+## Appendix D — Sidecar config-introspection endpoint (future)
+
+> Not an MVP deliverable. The fleet-observability capstone of Appendix C; squarely the Tier‑2 node-status-aggregator work the [upgrade-shutdown design](../upgrade-shutdown-contract/DESIGN.md) named as future.
+
+Once both resolutions are materialized, expose them for fleet observability via a read endpoint **on the `seictl` sidecar** (Tier‑2, control-plane-authenticated — **not** the public Tendermint RPC). It returns the resolved configuration in the canonical unified `SeiConfig` form + `schema_version`, and supports comparing the managers — e.g. a `manager=v2` / `manager=legacy` selector and a diff view of `{key, legacy_value, v2_value, source: default|file|env|flag}` (per-key **provenance** is the thing raw TOML can't give).
+
+**Allowlist, not redaction (default-deny).** Resolved config is secret-bearing (priv-validator/TLS key paths, `tx_index.psql_conn` credentials, node key, admin address, peer topology). A field is included in the response **only if explicitly allowlisted** — exposing a value is an opt-in act, so nothing sensitive leaks by default or by omission. Any raw, unredacted view stays on the loopback admin gRPC surface; only the allowlisted projection leaves the node.
+
+Why it matters: this makes the silent rollout *actionable across the network* — the control plane sweeps sidecars and asks "show every node where `v2 ≠ legacy`," turning the default-flip into a data-driven decision instead of a leap. **Not an MVP deliverable.**
