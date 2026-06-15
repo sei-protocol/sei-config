@@ -300,6 +300,7 @@ func applyFullOverrides(cfg *SeiConfig) {
 	cfg.API.GRPCWeb.Enable = true
 	cfg.Storage.StateStore.Enable = true
 	cfg.Storage.StateStore.KeepRecent = 100_000
+	cfg.Storage.StateCommit.AsyncCommitBuffer = 100
 	cfg.Chain.MinRetainBlocks = 100_000
 
 	cfg.EVM.HTTPEnabled = true
