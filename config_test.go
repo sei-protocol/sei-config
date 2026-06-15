@@ -165,6 +165,20 @@ func TestDefaultForMode_FullEnablesServices(t *testing.T) {
 	}
 }
 
+func TestDefaultForMode_AsyncCommitBufferByMode(t *testing.T) {
+	cases := map[NodeMode]int{
+		ModeFull:      100,
+		ModeArchive:   100,
+		ModeValidator: 0,
+		ModeSeed:      0,
+	}
+	for mode, want := range cases {
+		if got := DefaultForMode(mode).Storage.StateCommit.AsyncCommitBuffer; got != want {
+			t.Errorf("%s async_commit_buffer: got %d, want %d", mode, got, want)
+		}
+	}
+}
+
 func TestValidate_InvalidMode(t *testing.T) {
 	cfg := Default()
 	cfg.Mode = "bogus"
