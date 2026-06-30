@@ -51,3 +51,31 @@ func writeFile(t *testing.T, path, contents string) {
 		t.Fatal(err)
 	}
 }
+
+// TestReadConfigFromDir_LocksLeniencyBoundary pins what must STILL error after
+// the lenient decode. The whole risk of weakly-typed coercion is silently
+// widening; these cases (a genuinely non-numeric string, an empty string into a
+// numeric field, a malformed duration) must keep failing, so a future decoder
+// change cannot loosen the boundary with a green suite.
+func TestReadConfigFromDir_LocksLeniencyBoundary(t *testing.T) {
+	cases := map[string]string{
+		"non-numeric string into int": "[mempool]\nduplicate-txs-cache-size = \"banana\"\n",
+		"empty string into int":       "[mempool]\nduplicate-txs-cache-size = \"\"\n",
+		"malformed duration":          "[mempool]\nttl-duration = \"notaduration\"\n",
+	}
+	for name, configToml := range cases {
+		t.Run(name, func(t *testing.T) {
+			home := t.TempDir()
+			cfgDir := filepath.Join(home, configDir)
+			if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, filepath.Join(cfgDir, configTomlFile), configToml)
+			writeFile(t, filepath.Join(cfgDir, appTomlFile), "")
+
+			if _, err := ReadConfigFromDir(home); err == nil {
+				t.Fatalf("expected ReadConfigFromDir to error on %s, got nil", name)
+			}
+		})
+	}
+}

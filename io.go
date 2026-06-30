@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 )
 
 const (
@@ -38,21 +40,32 @@ func ReadConfigFromDir(homeDir string) (*SeiConfig, error) {
 }
 
 // decodeTOMLFile decodes a TOML file into out, coercing quoted scalars the way
-// the legacy Viper/mapstructure reader does. The seid/tendermint config
-// templates emit some numeric and bool fields quoted (e.g.
-// `duplicate-txs-cache-size = "100000"`, `gossip-tx-key-only = "true"`);
-// BurntSushi/toml alone is strict and rejects a quoted string into an int/bool
-// field, so we decode to a generic map and then weakly-typed-decode into the
-// struct. The TextUnmarshaller hook keeps string-encoded types (Duration)
-// parsing as before. This mirrors how cosmos/Viper reads the same files, so a
-// real seid config.toml round-trips through the unified model.
+// the legacy reader does. The seid/tendermint config templates emit some
+// numeric and bool fields quoted (e.g. `duplicate-txs-cache-size = "100000"`,
+// `gossip-tx-key-only = "true"`); BurntSushi/toml alone is strict and rejects a
+// quoted string into an int/bool field, so we decode to a generic map and then
+// weakly-typed-decode into the struct. The TextUnmarshaller hook keeps
+// string-encoded types (Duration) parsing.
+//
+// This approximates how cosmos/Viper tolerates quoted scalars (not full parity
+// — Viper's hooks and key handling differ). WeaklyTypedInput widens tolerance
+// two ways worth knowing: (a) a non-string scalar bound to a string field is
+// stringified (e.g. a stray `true` becomes "1") — accepted as benign since seid
+// templates never emit that form; (b) an empty string bound to a numeric/bool
+// field would coerce to the zero value — this we reject (see
+// rejectEmptyScalarStringHook) so blanking a limit errors rather than silently
+// pinning it to zero. Genuinely malformed values (non-numeric strings, bad
+// durations, overflow) still error (locked by io_quoted_scalars_test.go).
 func decodeTOMLFile(path string, out any) error {
 	var raw map[string]any
 	if _, err := toml.DecodeFile(path, &raw); err != nil {
 		return err
 	}
 	dec, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		DecodeHook:       mapstructure.TextUnmarshallerHookFunc(),
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			rejectEmptyScalarStringHook,
+			mapstructure.TextUnmarshallerHookFunc(),
+		),
 		WeaklyTypedInput: true,
 		TagName:          "toml",
 		Result:           out,
@@ -61,6 +74,33 @@ func decodeTOMLFile(path string, out any) error {
 		return err
 	}
 	return dec.Decode(raw)
+}
+
+// rejectEmptyScalarStringHook fails an empty-string value bound to a numeric or
+// bool field instead of letting WeaklyTypedInput silently coerce it to the zero
+// value. Blanking a numeric (a connection limit, a cache size) should error,
+// not silently pin it to 0/false. Non-empty strings pass through unchanged to
+// the quoted-scalar coercion the template requires.
+func rejectEmptyScalarStringHook(from, to reflect.Type, data any) (any, error) {
+	if from.Kind() != reflect.String {
+		return data, nil
+	}
+	if s, _ := data.(string); strings.TrimSpace(s) != "" {
+		return data, nil
+	}
+	t := to
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	switch t.Kind() {
+	case reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
+		return nil, fmt.Errorf("empty string for %s field", to)
+	default:
+		return data, nil
+	}
 }
 
 // WriteConfigToDir writes the SeiConfig as config.toml and app.toml into

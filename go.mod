@@ -4,4 +4,4 @@ go 1.25.6
 
 require github.com/BurntSushi/toml v1.5.0
 
-require github.com/mitchellh/mapstructure v1.5.0
+require github.com/go-viper/mapstructure/v2 v2.5.0
