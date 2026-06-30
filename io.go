@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
+	"github.com/mitchellh/mapstructure"
 )
 
 const (
@@ -23,17 +24,43 @@ func ReadConfigFromDir(homeDir string) (*SeiConfig, error) {
 	appPath := filepath.Join(cfgDir, appTomlFile)
 
 	var tm legacyTendermintConfig
-	if _, err := toml.DecodeFile(configPath, &tm); err != nil {
+	if err := decodeTOMLFile(configPath, &tm); err != nil {
 		return nil, fmt.Errorf("reading %s: %w", configPath, err)
 	}
 
 	var app legacyAppConfig
-	if _, err := toml.DecodeFile(appPath, &app); err != nil {
+	if err := decodeTOMLFile(appPath, &app); err != nil {
 		return nil, fmt.Errorf("reading %s: %w", appPath, err)
 	}
 
 	cfg := fromLegacy(tm, app)
 	return cfg, nil
+}
+
+// decodeTOMLFile decodes a TOML file into out, coercing quoted scalars the way
+// the legacy Viper/mapstructure reader does. The seid/tendermint config
+// templates emit some numeric and bool fields quoted (e.g.
+// `duplicate-txs-cache-size = "100000"`, `gossip-tx-key-only = "true"`);
+// BurntSushi/toml alone is strict and rejects a quoted string into an int/bool
+// field, so we decode to a generic map and then weakly-typed-decode into the
+// struct. The TextUnmarshaller hook keeps string-encoded types (Duration)
+// parsing as before. This mirrors how cosmos/Viper reads the same files, so a
+// real seid config.toml round-trips through the unified model.
+func decodeTOMLFile(path string, out any) error {
+	var raw map[string]any
+	if _, err := toml.DecodeFile(path, &raw); err != nil {
+		return err
+	}
+	dec, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		DecodeHook:       mapstructure.TextUnmarshallerHookFunc(),
+		WeaklyTypedInput: true,
+		TagName:          "toml",
+		Result:           out,
+	})
+	if err != nil {
+		return err
+	}
+	return dec.Decode(raw)
 }
 
 // WriteConfigToDir writes the SeiConfig as config.toml and app.toml into
