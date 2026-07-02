@@ -257,8 +257,8 @@ type legacyStateCommit struct {
 	Enable            bool   `toml:"sc-enable"`
 	Directory         string `toml:"sc-directory"`
 	AsyncCommitBuffer int    `toml:"sc-async-commit-buffer"`
-	WriteMode         string `toml:"sc-write-mode"`
-	ReadMode          string `toml:"sc-read-mode"`
+	WriteMode         string `toml:"sc-write-mode,omitempty"`
+	ReadMode          string `toml:"sc-read-mode,omitempty"`
 
 	KeepRecent                uint32  `toml:"sc-keep-recent"`
 	SnapshotInterval          uint32  `toml:"sc-snapshot-interval"`
@@ -277,8 +277,8 @@ type legacyStateStore struct {
 	ImportNumWorkers     int    `toml:"ss-import-num-workers"`
 	KeepLastVersion      bool   `toml:"ss-keep-last-version"`
 	UseDefaultComparer   bool   `toml:"ss-use-default-comparer"`
-	WriteMode            string `toml:"ss-write-mode"`
-	ReadMode             string `toml:"ss-read-mode"`
+	WriteMode            string `toml:"ss-write-mode,omitempty"`
+	ReadMode             string `toml:"ss-read-mode,omitempty"`
 	EVMDBDirectory       string `toml:"ss-evm-db-directory"`
 }
 

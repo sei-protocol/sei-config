@@ -115,13 +115,12 @@ func baseDefaults() *SeiConfig {
 			PruningInterval:     "0",
 			SnapshotKeepRecent:  2,
 			IAVLDisableFastNode: true,
-			// WriteMode tracks the stable released seid (v6.5.1), which accepts
-			// cosmos_only and rejects memiavl_only. Nightly/main callers override
-			// to memiavl_only. Bump this default when 6.6.0 ships memiavl_only.
+			// WriteMode/ReadMode are left unset so render omits them and each seid
+			// binary applies its own native default. Their valid values differ
+			// across binary versions, so no single rendered value boots every
+			// target; a caller that needs a specific mode sets it explicitly.
 			StateCommit: StateCommitConfig{
-				Enable:    true,
-				WriteMode: WriteModeCosmosOnly,
-				ReadMode:  ReadModeCosmosOnly,
+				Enable: true,
 			},
 			StateStore: StateStoreConfig{
 				Enable:               true,
@@ -131,8 +130,6 @@ func baseDefaults() *SeiConfig {
 				PruneIntervalSeconds: 600,
 				ImportNumWorkers:     1,
 				KeepLastVersion:      true,
-				WriteMode:            WriteModeCosmosOnly,
-				ReadMode:             ReadModeCosmosOnly,
 			},
 			ReceiptStore: ReceiptStoreConfig{
 				Backend:              BackendPebbleDB,

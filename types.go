@@ -90,9 +90,10 @@ func (m WriteMode) IsValid() bool {
 	case WriteModeMemiavlOnly, WriteModeMigrateEVM, WriteModeEVMMigrated,
 		WriteModeMigrateAllButBank, WriteModeAllMigratedButBank,
 		WriteModeMigrateBank, WriteModeFlatKVOnly, WriteModeTestOnlyDualWrite,
-		// Deprecated v1 modes remain valid: the stable released seid (v6.5.1)
-		// still accepts them and rejects the v2 names. The v1→v2 migration
-		// renames them; validation must not reject configs targeting v6.5.1.
+		// Deprecated v1 modes remain valid here: older seid releases accept them
+		// and the v1→v2 migration renames them, so validation must not reject a
+		// config that still carries one. (The current binary's own enum has
+		// dropped these — render no longer emits them by default.)
 		WriteModeCosmosOnly, WriteModeDualWrite, WriteModeSplitWrite:
 		return true
 	default:
