@@ -104,8 +104,8 @@ func rejectEmptyScalarStringHook(from, to reflect.Type, data any) (any, error) {
 }
 
 // WriteConfigToDir writes the SeiConfig as config.toml and app.toml into
-// homeDir/config/. Writes are atomic (temp file + rename) to prevent
-// corruption on crash.
+// homeDir/config/. Both files are staged (temp + fsync) then committed together,
+// so a staging failure leaves the existing files untouched.
 func WriteConfigToDir(cfg *SeiConfig, homeDir string) error {
 	cfgDir := filepath.Join(homeDir, configDir)
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
@@ -115,16 +115,46 @@ func WriteConfigToDir(cfg *SeiConfig, homeDir string) error {
 	configPath := filepath.Join(cfgDir, configTomlFile)
 	appPath := filepath.Join(cfgDir, appTomlFile)
 
-	tm := cfg.toLegacyTendermint()
-	if err := atomicWriteTOML(configPath, tm); err != nil {
-		return fmt.Errorf("writing %s: %w", configPath, err)
+	// Stage both files before committing either: encode + write + fsync each to a
+	// temp file first, so if any of that fails the home is left untouched.
+	stagedConfig, err := stageTOML(cfgDir, cfg.toLegacyTendermint())
+	if err != nil {
+		return fmt.Errorf("staging %s: %w", configPath, err)
+	}
+	stagedApp, err := stageTOML(cfgDir, cfg.toLegacyApp())
+	if err != nil {
+		_ = os.Remove(stagedConfig)
+		return fmt.Errorf("staging %s: %w", appPath, err)
 	}
 
-	app := cfg.toLegacyApp()
-	if err := atomicWriteTOML(appPath, app); err != nil {
-		return fmt.Errorf("writing %s: %w", appPath, err)
+	// Commit both renames back-to-back. Residual window: any interruption before
+	// the dir fsync completes (a failed/crashed second rename, or a crash after
+	// both renames but before the fsync) can leave config.toml new / app.toml old
+	// — each file individually valid, cross-file inconsistent.
+	if err := os.Rename(stagedConfig, configPath); err != nil {
+		_ = os.Remove(stagedConfig)
+		_ = os.Remove(stagedApp)
+		return fmt.Errorf("committing %s: %w", configPath, err)
+	}
+	if err := os.Rename(stagedApp, appPath); err != nil {
+		_ = os.Remove(stagedApp)
+		return fmt.Errorf("committing %s: %w", appPath, err)
 	}
 
+	// fsync the config dir so both renames are durable together; a sync failure
+	// means the renames may not be on disk, so surface it rather than report
+	// success.
+	dir, err := os.Open(cfgDir)
+	if err != nil {
+		return fmt.Errorf("opening config dir for fsync: %w", err)
+	}
+	if err := dir.Sync(); err != nil {
+		_ = dir.Close()
+		return fmt.Errorf("fsyncing config dir: %w", err)
+	}
+	if err := dir.Close(); err != nil {
+		return fmt.Errorf("closing config dir: %w", err)
+	}
 	return nil
 }
 
@@ -153,46 +183,39 @@ func ApplyOverrides(cfg *SeiConfig, overrides map[string]string) error {
 	return nil
 }
 
-// atomicWriteTOML encodes v as TOML and writes it atomically to path.
-func atomicWriteTOML(path string, v any) error {
+// stageTOML encodes v as TOML into a synced, chmod'd temp file in dir and
+// returns its path without renaming it into place. Callers stage several files
+// and then commit them together (rename each), so a partial write never lands.
+func stageTOML(dir string, v any) (string, error) {
 	var buf bytes.Buffer
-	enc := toml.NewEncoder(&buf)
-	if err := enc.Encode(v); err != nil {
-		return err
+	if err := toml.NewEncoder(&buf).Encode(v); err != nil {
+		return "", err
 	}
 
-	dir := filepath.Dir(path)
 	tmp, err := os.CreateTemp(dir, ".sei-config-*.tmp")
 	if err != nil {
-		return fmt.Errorf("creating temp file: %w", err)
+		return "", fmt.Errorf("creating temp file: %w", err)
 	}
 	tmpPath := tmp.Name()
-	cleanup := func() { _ = os.Remove(tmpPath) }
 
 	if _, err := tmp.Write(buf.Bytes()); err != nil {
 		_ = tmp.Close()
-		cleanup()
-		return fmt.Errorf("writing temp file: %w", err)
+		_ = os.Remove(tmpPath)
+		return "", fmt.Errorf("writing temp file: %w", err)
 	}
 	if err := tmp.Sync(); err != nil {
 		_ = tmp.Close()
-		cleanup()
-		return fmt.Errorf("syncing temp file: %w", err)
+		_ = os.Remove(tmpPath)
+		return "", fmt.Errorf("syncing temp file: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
-		cleanup()
-		return fmt.Errorf("closing temp file: %w", err)
+		_ = os.Remove(tmpPath)
+		return "", fmt.Errorf("closing temp file: %w", err)
 	}
-
 	if err := os.Chmod(tmpPath, 0o644); err != nil {
-		cleanup()
-		return fmt.Errorf("setting permissions: %w", err)
+		_ = os.Remove(tmpPath)
+		return "", fmt.Errorf("setting permissions: %w", err)
 	}
 
-	if err := os.Rename(tmpPath, path); err != nil {
-		cleanup()
-		return fmt.Errorf("renaming temp file: %w", err)
-	}
-
-	return nil
+	return tmpPath, nil
 }
