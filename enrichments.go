@@ -223,6 +223,9 @@ func DefaultEnrichments() map[string][]FieldOption {
 		"storage.state_store.enable": {
 			WithDescription("Enable SeiDB state-store for historical queries."),
 		},
+		"storage.state_store.evm_ss_split": {
+			WithDescription("Store EVM state in the SeiDB state-store (app.toml [state-store] evm-ss-split)."),
+		},
 		"storage.state_store.backend": {
 			WithDescription("State store backend: pebbledb, rocksdb."),
 		},
