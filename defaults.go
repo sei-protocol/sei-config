@@ -124,7 +124,6 @@ func baseDefaults() *SeiConfig {
 			},
 			StateStore: StateStoreConfig{
 				Enable:               true,
-				EVMSSSplit:           true,
 				Backend:              BackendPebbleDB,
 				AsyncWriteBuffer:     100,
 				KeepRecent:           100_000,
@@ -297,6 +296,13 @@ func applyFullOverrides(cfg *SeiConfig) {
 	cfg.API.GRPC.Enable = true
 	cfg.API.GRPCWeb.Enable = true
 	cfg.Storage.StateStore.Enable = true
+	// RPC/full nodes default to the split SS layout (EVM state in its own SS DB).
+	// Scoped here, not baseDefaults: only modes that run the SS store may set it,
+	// and per giga_store_migration.md the split is supported for RPC nodes only
+	// (validator/seed run no SS store; archive resets it below). A fresh node
+	// builds the split on bootstrap; an existing unsplit node adopts it only via a
+	// state-sync, so this default touches new nodes, not a migration path.
+	cfg.Storage.StateStore.EVMSSSplit = true
 	cfg.Storage.StateStore.KeepRecent = 100_000
 	cfg.Storage.StateCommit.AsyncCommitBuffer = 100
 	cfg.Chain.MinRetainBlocks = 100_000
@@ -310,6 +316,9 @@ func applyArchiveOverrides(cfg *SeiConfig) {
 
 	cfg.Storage.PruningStrategy = PruningNothing
 	cfg.Storage.StateStore.KeepRecent = 0
+	// Archive inherits full's overrides but the giga SS split is not supported for
+	// archive nodes yet (giga_store_migration.md: RPC nodes only), so reset it.
+	cfg.Storage.StateStore.EVMSSSplit = false
 	// Only MinRetainBlocks disables receipt pruning at runtime; the next two
 	// are emitted to document intent (see ReceiptStoreConfig).
 	cfg.Chain.MinRetainBlocks = 0

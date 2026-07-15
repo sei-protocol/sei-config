@@ -278,6 +278,10 @@ func validateStorage(r *ValidationResult, cfg *SeiConfig) {
 		r.addWarning("storage.state_store.backend", fmt.Sprintf(
 			"unusual backend %q; expected pebbledb or rocksdb", ss.Backend))
 	}
+	if ss.EVMSSSplit && !ss.Enable {
+		r.addError("storage.state_store.evm_ss_split",
+			"evm_ss_split requires state_store.enable=true (the split routes EVM state into the state store)")
+	}
 }
 
 func validateEVM(r *ValidationResult, cfg *SeiConfig) {

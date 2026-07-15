@@ -268,7 +268,11 @@ type legacyStateCommit struct {
 }
 
 type legacyStateStore struct {
-	Enable               bool   `toml:"ss-enable"`
+	Enable bool `toml:"ss-enable"`
+	// evm-ss-split is bare, NOT ss-prefixed — the binary reads it unprefixed
+	// under [state-store]. Do not add the ss- prefix (cf. rs-backend below).
+	// omitempty so a false value omits the key: an existing (v2) node's app.toml
+	// stays unchanged; only a node with the split on emits evm-ss-split = true.
 	EVMSSSplit           bool   `toml:"evm-ss-split,omitempty"`
 	DBDirectory          string `toml:"ss-db-directory"`
 	Backend              string `toml:"ss-backend"`
