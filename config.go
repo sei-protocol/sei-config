@@ -328,6 +328,7 @@ type MemIAVLConfig struct {
 
 type StateStoreConfig struct {
 	Enable               bool      `toml:"enable"`
+	EVMSSSplit           bool      `toml:"evm_ss_split"`
 	DBDirectory          string    `toml:"db_directory"`
 	Backend              string    `toml:"backend"`
 	AsyncWriteBuffer     int       `toml:"async_write_buffer"`

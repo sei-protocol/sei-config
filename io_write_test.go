@@ -107,3 +107,49 @@ func TestWriteConfigToDir_ReceiptStoreUsesRSBackend(t *testing.T) {
 		}
 	}
 }
+
+// TestWriteConfigToDir_EVMSSSplit guards the giga state-store default: a new node
+// renders app.toml [state-store] evm-ss-split=true (the one flag that distinguishes
+// a giga SS node from a plain one), under the exact unprefixed key the binary reads
+// — the sibling keys are ss-prefixed, but this one is bare evm-ss-split. A node left
+// off (EVMSSSplit=false) omits the key entirely (omitempty), so an existing v2
+// node's rendered app.toml is unchanged.
+func TestWriteConfigToDir_EVMSSSplit(t *testing.T) {
+	readApp := func(home string) string {
+		b, err := os.ReadFile(filepath.Join(home, configDir, appTomlFile))
+		if err != nil {
+			t.Fatalf("ReadFile app.toml: %v", err)
+		}
+		return string(b)
+	}
+
+	// Default: on, rendered as the exact bare key, and round-trips back to true.
+	home := t.TempDir()
+	if err := WriteConfigToDir(DefaultForMode(ModeFull), home); err != nil {
+		t.Fatalf("WriteConfigToDir: %v", err)
+	}
+	if app := readApp(home); !strings.Contains(app, "evm-ss-split = true") {
+		t.Errorf("default app.toml must render evm-ss-split = true")
+	}
+	if strings.Contains(readApp(home), "ss-evm-ss-split") {
+		t.Errorf("evm-ss-split must be the bare key, not ss-evm-ss-split — the binary reads it unprefixed")
+	}
+	got, err := ReadConfigFromDir(home)
+	if err != nil {
+		t.Fatalf("ReadConfigFromDir: %v", err)
+	}
+	if !got.Storage.StateStore.EVMSSSplit {
+		t.Errorf("round-trip: state_store.evm_ss_split got false, want true")
+	}
+
+	// Off: omitempty drops the key, so an existing v2 node's app.toml is unchanged.
+	home2 := t.TempDir()
+	cfg := DefaultForMode(ModeFull)
+	cfg.Storage.StateStore.EVMSSSplit = false
+	if err := WriteConfigToDir(cfg, home2); err != nil {
+		t.Fatalf("WriteConfigToDir: %v", err)
+	}
+	if strings.Contains(readApp(home2), "evm-ss-split") {
+		t.Errorf("evm-ss-split=false must omit the key (omitempty), but it is present")
+	}
+}

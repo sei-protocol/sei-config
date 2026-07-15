@@ -124,6 +124,7 @@ func baseDefaults() *SeiConfig {
 			},
 			StateStore: StateStoreConfig{
 				Enable:               true,
+				EVMSSSplit:           true,
 				Backend:              BackendPebbleDB,
 				AsyncWriteBuffer:     100,
 				KeepRecent:           100_000,

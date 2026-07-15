@@ -269,6 +269,7 @@ type legacyStateCommit struct {
 
 type legacyStateStore struct {
 	Enable               bool   `toml:"ss-enable"`
+	EVMSSSplit           bool   `toml:"evm-ss-split,omitempty"`
 	DBDirectory          string `toml:"ss-db-directory"`
 	Backend              string `toml:"ss-backend"`
 	AsyncWriteBuffer     int    `toml:"ss-async-write-buffer"`
@@ -589,6 +590,7 @@ func (cfg *SeiConfig) toLegacyApp() legacyAppConfig {
 
 		StateStore: legacyStateStore{
 			Enable:               cfg.Storage.StateStore.Enable,
+			EVMSSSplit:           cfg.Storage.StateStore.EVMSSSplit,
 			DBDirectory:          cfg.Storage.StateStore.DBDirectory,
 			Backend:              cfg.Storage.StateStore.Backend,
 			AsyncWriteBuffer:     cfg.Storage.StateStore.AsyncWriteBuffer,
@@ -852,6 +854,7 @@ func fromLegacy(tm legacyTendermintConfig, app legacyAppConfig) *SeiConfig {
 			},
 			StateStore: StateStoreConfig{
 				Enable:               app.StateStore.Enable,
+				EVMSSSplit:           app.StateStore.EVMSSSplit,
 				DBDirectory:          app.StateStore.DBDirectory,
 				Backend:              app.StateStore.Backend,
 				AsyncWriteBuffer:     app.StateStore.AsyncWriteBuffer,
