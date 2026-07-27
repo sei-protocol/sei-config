@@ -70,6 +70,64 @@ func TestDefaultForMode_SeedHighConnections(t *testing.T) {
 	}
 }
 
+func TestDefaultForMode_SeedBindsP2POnAllInterfaces(t *testing.T) {
+	cfg := DefaultForMode(ModeSeed)
+
+	if got, want := cfg.Network.P2P.ListenAddress, p2pListenAddrAllInterfaces; got != want {
+		t.Errorf("seed p2p listen_address: got %q, want %q — loopback accepts no external peers, and fails silently", got, want)
+	}
+	if !cfg.Network.P2P.PexReactor {
+		t.Error("seed must have pex enabled; makeSeedNode refuses to start without it")
+	}
+}
+
+func TestDefaultForMode_SeedBoundsRecvAmplification(t *testing.T) {
+	cfg := DefaultForMode(ModeSeed)
+
+	got := cfg.Network.P2P.MaxPacketMsgPayloadSize
+	if got != 102_400 {
+		t.Errorf("seed max_packet_msg_payload_size: got %d, want 102400", got)
+	}
+	// Independent of the value above: the override is pointless unless it sits
+	// below the baseline it is narrowing.
+	if base := Default().Network.P2P.MaxPacketMsgPayloadSize; got >= base {
+		t.Errorf("seed payload cap %d must be below the %d baseline", got, base)
+	}
+}
+
+func TestDefaultForMode_SeedLeavesRPCOnLoopback(t *testing.T) {
+	cfg := DefaultForMode(ModeSeed)
+
+	if got, want := cfg.Network.RPC.ListenAddress, "tcp://127.0.0.1:26657"; got != want {
+		t.Errorf("seed rpc listen_address: got %q, want %q — seed mode starts no RPC listener, so the asymmetry with validator/full is deliberate", got, want)
+	}
+}
+
+func TestDefaultForMode_SeedKeepsStateCommitEnabled(t *testing.T) {
+	cfg := DefaultForMode(ModeSeed)
+
+	if !cfg.Storage.StateCommit.Enable {
+		t.Error("seed must keep state-commit enabled; SetupSeiDB panics without it and seid builds the app before dispatching on mode")
+	}
+	if cfg.Storage.StateStore.Enable {
+		t.Error("seed should have state store disabled; it answers no queries")
+	}
+}
+
+func TestNodePortsForMode_SeedServesP2PAndMetrics(t *testing.T) {
+	got := NodePortsForMode(ModeSeed)
+
+	want := []NodePort{{PortNameP2P, PortP2P}, {PortNameMetrics, PortMetrics}}
+	if len(got) != len(want) {
+		t.Fatalf("seed ports: got %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("seed port %d: got %v, want %v", i, got[i], want[i])
+		}
+	}
+}
+
 func TestDefaultForMode_ArchiveKeepsAll(t *testing.T) {
 	cfg := DefaultForMode(ModeArchive)
 
@@ -769,5 +827,35 @@ func TestLegacyTendermintMode_ArchiveMapped(t *testing.T) {
 	tm := cfg.toLegacyTendermint()
 	if tm.Mode != "full" {
 		t.Errorf("archive should map to tendermint mode 'full', got %q", tm.Mode)
+	}
+}
+
+// Overrides resolve after mode defaults, so a seed can reach seid with pex
+// stripped. seid then hard-errors at boot, so catch it at validation instead.
+func TestValidate_SeedRequiresPex(t *testing.T) {
+	cfg := DefaultForMode(ModeSeed)
+	cfg.Network.P2P.PexReactor = false
+
+	result := Validate(cfg)
+	if !result.HasErrors() {
+		t.Fatal("a seed with pex disabled must not validate")
+	}
+	var found bool
+	for _, d := range result.Diagnostics {
+		if d.Field == "network.p2p.pex" && d.Severity == SeverityError {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("want an error on network.p2p.pex, got %v", result.Diagnostics)
+	}
+
+	// Every other mode leaves pex to the operator.
+	for _, mode := range []NodeMode{ModeValidator, ModeFull, ModeArchive} {
+		other := DefaultForMode(mode)
+		other.Network.P2P.PexReactor = false
+		if Validate(other).HasErrors() {
+			t.Errorf("mode %s with pex disabled should still validate", mode)
+		}
 	}
 }
