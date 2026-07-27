@@ -32,17 +32,30 @@ type NodePort struct {
 	Port int32
 }
 
+// Port names. Consumers surface these verbatim as Kubernetes container and
+// service port names, so they are part of the contract — renaming one is a
+// breaking change for sei-k8s-controller.
+const (
+	PortNameEVMHTTP = "evm-rpc"
+	PortNameEVMWS   = "evm-ws"
+	PortNameGRPC    = "grpc"
+	PortNameREST    = "rest"
+	PortNameP2P     = "p2p"
+	PortNameRPC     = "rpc"
+	PortNameMetrics = "metrics"
+)
+
 // NodePorts returns the canonical set of ports exposed by a Sei node (seid).
 // The sidecar port is excluded; use PortSidecar directly.
 func NodePorts() []NodePort {
 	return []NodePort{
-		{"evm-rpc", PortEVMHTTP},
-		{"evm-ws", PortEVMWS},
-		{"grpc", PortGRPC},
-		{"rest", PortREST},
-		{"p2p", PortP2P},
-		{"rpc", PortRPC},
-		{"metrics", PortMetrics},
+		{PortNameEVMHTTP, PortEVMHTTP},
+		{PortNameEVMWS, PortEVMWS},
+		{PortNameGRPC, PortGRPC},
+		{PortNameREST, PortREST},
+		{PortNameP2P, PortP2P},
+		{PortNameRPC, PortRPC},
+		{PortNameMetrics, PortMetrics},
 	}
 }
 
@@ -50,20 +63,23 @@ func NodePorts() []NodePort {
 // running in the given mode.
 func NodePortsForMode(mode NodeMode) []NodePort {
 	switch mode {
-	case ModeValidator:
+	case ModeValidator, ModeSeed:
+		// A seed serves the same surface as a validator: P2P plus metrics. It
+		// starts no RPC, gRPC, REST or EVM listener — only the transport and
+		// the PEX reactor.
 		return []NodePort{
-			{"p2p", PortP2P},
-			{"metrics", PortMetrics},
+			{PortNameP2P, PortP2P},
+			{PortNameMetrics, PortMetrics},
 		}
 	case ModeFull, ModeArchive:
 		return []NodePort{
-			{"evm-rpc", PortEVMHTTP},
-			{"evm-ws", PortEVMWS},
-			{"grpc", PortGRPC},
-			{"rest", PortREST},
-			{"p2p", PortP2P},
-			{"rpc", PortRPC},
-			{"metrics", PortMetrics},
+			{PortNameEVMHTTP, PortEVMHTTP},
+			{PortNameEVMWS, PortEVMWS},
+			{PortNameGRPC, PortGRPC},
+			{PortNameREST, PortREST},
+			{PortNameP2P, PortP2P},
+			{PortNameRPC, PortRPC},
+			{PortNameMetrics, PortMetrics},
 		}
 	default:
 		return nil

@@ -321,4 +321,11 @@ func validateCrossField(r *ValidationResult, cfg *SeiConfig) {
 	if cfg.Storage.PruningStrategy == PruningEverything && cfg.Storage.SnapshotInterval > 0 {
 		r.addError("storage", "cannot enable snapshots with 'everything' pruning strategy")
 	}
+	// PEX is a seed's whole function, and seid refuses to construct a seed node
+	// without it. Overrides resolve after mode defaults, so an override can strip
+	// it from an otherwise valid seed config; catch that here rather than at boot.
+	if cfg.Mode == ModeSeed && !cfg.Network.P2P.PexReactor {
+		r.addError("network.p2p.pex",
+			"seed mode requires pex; a seed exists to exchange peer addresses and seid will not start without it")
+	}
 }

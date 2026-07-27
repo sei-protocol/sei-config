@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+// p2pListenAddrAllInterfaces is the P2P listen address for every mode that
+// accepts inbound peer connections. baseDefaults binds loopback instead, so a
+// mode that omits this override is reachable by nobody — and fails silently,
+// since the node still boots clean.
+const p2pListenAddrAllInterfaces = "tcp://0.0.0.0:26656"
+
 // Default returns a SeiConfig populated with baseline defaults (mode=full).
 // Use DefaultForMode to get defaults tailored to a specific node mode.
 func Default() *SeiConfig {
@@ -255,7 +261,7 @@ func applyModeOverrides(cfg *SeiConfig, mode NodeMode) {
 func applyValidatorOverrides(cfg *SeiConfig) {
 	cfg.TxIndex.Indexer = []string{"null"}
 	cfg.Network.RPC.ListenAddress = "tcp://0.0.0.0:26657"
-	cfg.Network.P2P.ListenAddress = "tcp://0.0.0.0:26656"
+	cfg.Network.P2P.ListenAddress = p2pListenAddrAllInterfaces
 	cfg.Network.P2P.AllowDuplicateIP = false
 
 	cfg.API.REST.Enable = false
@@ -266,14 +272,35 @@ func applyValidatorOverrides(cfg *SeiConfig) {
 	cfg.EVM.WSEnabled = false
 }
 
+// applySeedOverrides configures a CometBFT seed node: P2P transport and PEX
+// reactor only.
+//
+// RPC.ListenAddress stays at the baseDefaults loopback because seed mode starts
+// no RPC listener, so 0.0.0.0 would advertise a port nothing serves. The
+// asymmetry with validator/full is deliberate.
 func applySeedOverrides(cfg *SeiConfig) {
 	cfg.TxIndex.Indexer = []string{"null"}
+	cfg.Network.P2P.ListenAddress = p2pListenAddrAllInterfaces
 	cfg.Network.P2P.MaxConnections = 1000
 	cfg.Network.P2P.AllowDuplicateIP = true
+	// Bounds the PEX recv path only, where ReadSizedMsg allocates a peer-declared
+	// size before the channel's ~26 KB RecvMessageCapacity can reject it. The
+	// multiplier is maxInbound (max_connections less the outbound reserve), so at
+	// the 1 MB baseline this path alone reaches roughly a gigabyte of concurrent
+	// transient allocation.
+	//
+	// It is NOT the seed's worst case. The pre-auth handshake read is a separate,
+	// larger surface with a size limit hardcoded in sei-tendermint that no config
+	// key reaches, and max_connections scales both. Sizing a seed's memory means
+	// accounting for that path too.
+	cfg.Network.P2P.MaxPacketMsgPayloadSize = 102_400
 
 	cfg.API.REST.Enable = false
 	cfg.API.GRPC.Enable = false
 	cfg.API.GRPCWeb.Enable = false
+	// StateStore is safe to disable — a seed answers no queries. StateCommit is
+	// not: seid builds the cosmos app before dispatching on mode, and SetupSeiDB
+	// panics when SC is off, so a seed carries a memIAVL store it never advances.
 	cfg.Storage.StateStore.Enable = false
 	cfg.Storage.PruningStrategy = PruningEverything
 
@@ -284,7 +311,7 @@ func applySeedOverrides(cfg *SeiConfig) {
 func applyFullOverrides(cfg *SeiConfig) {
 	cfg.TxIndex.Indexer = []string{"kv"}
 	cfg.Network.RPC.ListenAddress = "tcp://0.0.0.0:26657"
-	cfg.Network.P2P.ListenAddress = "tcp://0.0.0.0:26656"
+	cfg.Network.P2P.ListenAddress = p2pListenAddrAllInterfaces
 
 	cfg.Chain.ConcurrencyWorkers = 500
 	cfg.Storage.PruningStrategy = PruningCustom
