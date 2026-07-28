@@ -291,7 +291,18 @@ func applySeedOverrides(cfg *SeiConfig) {
 	cfg.TxIndex.Indexer = []string{"null"}
 	cfg.Network.P2P.ListenAddress = p2pListenAddrAllInterfaces
 	cfg.Network.P2P.MaxConnections = 1000
+	// Inert in sei-tendermint: declared and rendered into config.toml, never read.
+	// Kept because true is the right intent for a seed, but the limit that actually
+	// applies is MaxIncomingConnectionAttempts below.
 	cfg.Network.P2P.AllowDuplicateIP = true
+	// Caps CONCURRENT connections per source IP, despite the name. Upstream leaves
+	// it equal to max_connections (100/100) where it can never bind; raising the
+	// total to 1000 makes it the first real constraint. 32 gives one source ~3% of
+	// inbound — ample for an operator running several nodes behind one NAT, while
+	// forcing a flood across ~31 addresses. This assumes the load balancer in front
+	// preserves client IPs; under SNAT it multiplies against the LB's address count
+	// rather than the peers'.
+	cfg.Network.P2P.MaxIncomingConnectionAttempts = 32
 	// Bounds the PEX recv path only, where ReadSizedMsg allocates a peer-declared
 	// size before the channel's ~26 KB RecvMessageCapacity can reject it. The
 	// multiplier is maxInbound (max_connections less the outbound reserve), so at
