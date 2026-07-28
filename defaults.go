@@ -228,10 +228,10 @@ func baseDefaults() *SeiConfig {
 			LruSize:       1,
 		},
 
-		// Matches seid's own DefaultConfig (giga/executor/config). The zero
-		// value here previously rendered enabled=false into every app.toml,
-		// silently overriding the binary default; nodes that must stay on the
-		// v2 executor pin giga_executor.enabled=false explicitly.
+		// Mirrors seid's own DefaultConfig (giga/executor/config). Left at the Go
+		// zero value this field renders enabled=false into every app.toml and
+		// overrides the binary's own default; a node that must stay on the v2
+		// executor pins giga_executor.enabled=false explicitly.
 		GigaExecutor: GigaExecutorConfig{
 			Enabled:    true,
 			OccEnabled: true,
@@ -295,13 +295,14 @@ func applySeedOverrides(cfg *SeiConfig) {
 	// Kept because true is the right intent for a seed, but the limit that actually
 	// applies is MaxIncomingConnectionAttempts below.
 	cfg.Network.P2P.AllowDuplicateIP = true
-	// Caps CONCURRENT connections per source IP, despite the name. Upstream leaves
-	// it equal to max_connections (100/100) where it can never bind; raising the
-	// total to 1000 makes it the first real constraint. 32 gives one source ~3% of
-	// inbound — ample for an operator running several nodes behind one NAT, while
-	// forcing a flood across ~31 addresses. This assumes the load balancer in front
-	// preserves client IPs; under SNAT it multiplies against the LB's address count
-	// rather than the peers'.
+	// Caps CONCURRENT connections per source IP despite the name, and rejects
+	// silently: seed mode serves no metrics, so a wrong value yields no error and no
+	// counter. Tightens the inherited 100 to 32 — ~3% of the ~980 inbound to any one
+	// source, against a measured fleet maximum of 8 real peers per address, forcing a
+	// flood across ~31 addresses. Correct only while the load balancer preserves
+	// client IPs: under SNAT the cap applies per LB address instead, collapsing the
+	// ceiling to 32 x (LB addresses) and dropping legitimate peers. The accept path
+	// is NodeID-blind, so this also bounds inbound persistent/unconditional peers.
 	cfg.Network.P2P.MaxIncomingConnectionAttempts = 32
 	// Bounds the PEX recv path only, where ReadSizedMsg allocates a peer-declared
 	// size before the channel's ~26 KB RecvMessageCapacity can reject it. The
