@@ -228,6 +228,15 @@ func baseDefaults() *SeiConfig {
 			LruSize:       1,
 		},
 
+		// Matches seid's own DefaultConfig (giga/executor/config). The zero
+		// value here previously rendered enabled=false into every app.toml,
+		// silently overriding the binary default; nodes that must stay on the
+		// v2 executor pin giga_executor.enabled=false explicitly.
+		GigaExecutor: GigaExecutorConfig{
+			Enabled:    true,
+			OccEnabled: true,
+		},
+
 		LightInvariance: LightInvarianceConfig{
 			SupplyEnabled: true,
 		},
