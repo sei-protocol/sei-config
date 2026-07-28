@@ -63,10 +63,26 @@ func TestDefaultForMode_SeedHighConnections(t *testing.T) {
 		t.Errorf("seed max_connections: got %d, want 1000", cfg.Network.P2P.MaxConnections)
 	}
 	if !cfg.Network.P2P.AllowDuplicateIP {
-		t.Error("seed should allow duplicate IPs")
+		t.Error("seed should allow duplicate IPs — records the intent only; sei-tendermint never reads this field")
 	}
 	if cfg.Storage.PruningStrategy != PruningEverything {
 		t.Errorf("seed pruning: got %s, want everything", cfg.Storage.PruningStrategy)
+	}
+}
+
+func TestDefaultForMode_SeedBoundsPerSourceIPConnections(t *testing.T) {
+	cfg := DefaultForMode(ModeSeed)
+
+	got := cfg.Network.P2P.MaxIncomingConnectionAttempts
+	if got != 32 {
+		t.Errorf("seed max_incoming_connection_attempts: got %d, want 32", got)
+	}
+	// The cap is per source IP and counts concurrent connections, so it constrains
+	// nothing unless it sits below the total. Upstream leaves the two equal, where a
+	// single source can hold every slot.
+	if got >= uint(cfg.Network.P2P.MaxConnections) {
+		t.Errorf("seed per-IP cap %d must be below max_connections %d, or one source can fill the node",
+			got, cfg.Network.P2P.MaxConnections)
 	}
 }
 
