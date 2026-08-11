@@ -215,6 +215,7 @@ type P2PConfig struct {
 	HandshakeTimeout        Duration `toml:"handshake_timeout"`
 	DialTimeout             Duration `toml:"dial_timeout"`
 	DialInterval            Duration `toml:"dial_interval"`
+	AcceptInterval          Duration `toml:"accept_interval"`
 
 	QueueType string `toml:"queue_type"`
 }

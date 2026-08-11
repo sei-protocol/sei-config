@@ -77,6 +77,7 @@ type legacyP2P struct {
 	HandshakeTimeout              Duration `toml:"handshake-timeout"`
 	DialTimeout                   Duration `toml:"dial-timeout"`
 	DialInterval                  Duration `toml:"dial-interval"`
+	AcceptInterval                Duration `toml:"accept-interval"`
 	QueueType                     string   `toml:"queue-type"`
 }
 
@@ -431,6 +432,7 @@ func (cfg *SeiConfig) toLegacyTendermint() legacyTendermintConfig {
 			HandshakeTimeout:              cfg.Network.P2P.HandshakeTimeout,
 			DialTimeout:                   cfg.Network.P2P.DialTimeout,
 			DialInterval:                  cfg.Network.P2P.DialInterval,
+			AcceptInterval:                cfg.Network.P2P.AcceptInterval,
 			QueueType:                     cfg.Network.P2P.QueueType,
 		},
 
@@ -767,6 +769,7 @@ func fromLegacy(tm legacyTendermintConfig, app legacyAppConfig) *SeiConfig {
 				HandshakeTimeout:              tm.P2P.HandshakeTimeout,
 				DialTimeout:                   tm.P2P.DialTimeout,
 				DialInterval:                  tm.P2P.DialInterval,
+				AcceptInterval:                tm.P2P.AcceptInterval,
 				QueueType:                     tm.P2P.QueueType,
 			},
 		},
