@@ -71,6 +71,7 @@ func baseDefaults() *SeiConfig {
 				HandshakeTimeout:              Dur(10 * time.Second),
 				DialTimeout:                   Dur(3 * time.Second),
 				DialInterval:                  Dur(10 * time.Second),
+				AcceptInterval:                Dur(10 * time.Millisecond),
 				QueueType:                     "simple-priority",
 			},
 		},

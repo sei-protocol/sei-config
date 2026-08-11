@@ -325,6 +325,7 @@ func TestWriteReadRoundTrip(t *testing.T) {
 	original.EVM.HTTPPort = 9545
 	original.EVM.EnabledLegacySeiApis = []string{"sei_getLogs", "sei_getBlockByNumber"}
 	original.Storage.StateStore.KeepRecent = 50000
+	original.Network.P2P.AcceptInterval = Dur(25 * time.Millisecond)
 
 	if err := WriteConfigToDir(original, dir); err != nil {
 		t.Fatalf("WriteConfigToDir: %v", err)
@@ -356,6 +357,12 @@ func TestWriteReadRoundTrip(t *testing.T) {
 	}
 	if loaded.Storage.StateStore.KeepRecent != 50000 {
 		t.Errorf("state_store.keep_recent: got %d, want 50000", loaded.Storage.StateStore.KeepRecent)
+	}
+	// WriteConfigToDir regenerates config.toml wholesale from the legacy structs,
+	// so a p2p key missing from legacyP2P is silently dropped rather than
+	// preserved. Pin this one: seid reverts to a 1/s accept rate without it.
+	if got := loaded.Network.P2P.AcceptInterval; got != Dur(25*time.Millisecond) {
+		t.Errorf("p2p.accept_interval: got %v, want 25ms", got)
 	}
 	if loaded.Network.RPC.ListenAddress != testRPCAddr {
 		t.Errorf("rpc.listen_address: got %q", loaded.Network.RPC.ListenAddress)
