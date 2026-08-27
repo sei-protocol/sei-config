@@ -148,6 +148,7 @@ type ChainConfig struct {
 	MinGasPrices    string   `toml:"min_gas_prices"`
 	HaltHeight      uint64   `toml:"halt_height"`
 	HaltTime        uint64   `toml:"halt_time"`
+	FreezeHeight    uint64   `toml:"freeze_height"`
 	MinRetainBlocks uint64   `toml:"min_retain_blocks"`
 	InterBlockCache bool     `toml:"inter_block_cache"`
 	IndexEvents     []string `toml:"index_events"`

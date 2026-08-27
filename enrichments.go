@@ -35,6 +35,10 @@ func DefaultEnrichments() map[string][]FieldOption {
 			WithDescription("Minimum block time (Unix seconds) at which the node will halt. 0 disables."),
 			WithUnit("seconds"),
 		},
+		"chain.freeze_height": {
+			WithDescription("Block height at which the node stops executing while still serving query RPC. 0 disables."),
+			WithUnit("blocks"),
+		},
 		"chain.min_retain_blocks": {
 			WithDescription("Minimum block height offset from current for Tendermint block pruning. 0 keeps all."),
 			WithUnit("blocks"),
