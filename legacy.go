@@ -181,6 +181,7 @@ type legacyAppConfig struct {
 	PruningInterval     string   `toml:"pruning-interval"`
 	HaltHeight          uint64   `toml:"halt-height"`
 	HaltTime            uint64   `toml:"halt-time"`
+	FreezeHeight        uint64   `toml:"freeze-height"`
 	MinRetainBlocks     uint64   `toml:"min-retain-blocks"`
 	InterBlockCache     bool     `toml:"inter-block-cache"`
 	IndexEvents         []string `toml:"index-events"`
@@ -535,6 +536,7 @@ func (cfg *SeiConfig) toLegacyApp() legacyAppConfig {
 		PruningInterval:     cfg.Storage.PruningInterval,
 		HaltHeight:          cfg.Chain.HaltHeight,
 		HaltTime:            cfg.Chain.HaltTime,
+		FreezeHeight:        cfg.Chain.FreezeHeight,
 		MinRetainBlocks:     cfg.Chain.MinRetainBlocks,
 		InterBlockCache:     cfg.Chain.InterBlockCache,
 		IndexEvents:         cfg.Chain.IndexEvents,
@@ -720,6 +722,7 @@ func fromLegacy(tm legacyTendermintConfig, app legacyAppConfig) *SeiConfig {
 			MinGasPrices:       app.MinGasPrices,
 			HaltHeight:         app.HaltHeight,
 			HaltTime:           app.HaltTime,
+			FreezeHeight:       app.FreezeHeight,
 			MinRetainBlocks:    app.MinRetainBlocks,
 			InterBlockCache:    app.InterBlockCache,
 			IndexEvents:        app.IndexEvents,

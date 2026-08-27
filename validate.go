@@ -3,6 +3,7 @@ package seiconfig
 import (
 	"encoding/hex"
 	"fmt"
+	"math"
 )
 
 // Severity classifies a validation finding.
@@ -134,6 +135,9 @@ func validateChain(r *ValidationResult, cfg *SeiConfig) {
 	}
 	if cfg.Chain.ConcurrencyWorkers < -1 {
 		r.addError("chain.concurrency_workers", "concurrency_workers must be >= -1")
+	}
+	if cfg.Chain.FreezeHeight > math.MaxInt64 {
+		r.addError("chain.freeze_height", fmt.Sprintf("freeze_height must not exceed %d", int64(math.MaxInt64)))
 	}
 }
 
@@ -327,5 +331,10 @@ func validateCrossField(r *ValidationResult, cfg *SeiConfig) {
 	if cfg.Mode == ModeSeed && !cfg.Network.P2P.PexReactor {
 		r.addError("network.p2p.pex",
 			"seed mode requires pex; a seed exists to exchange peer addresses and seid will not start without it")
+	}
+	// Freeze stops execution and keeps serving queries; halt exits the process.
+	// seid rejects the combination, so catch it here rather than at boot.
+	if cfg.Chain.FreezeHeight > 0 && (cfg.Chain.HaltHeight > 0 || cfg.Chain.HaltTime > 0) {
+		r.addError("chain.freeze_height", "freeze_height cannot be combined with halt_height or halt_time")
 	}
 }
