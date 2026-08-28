@@ -119,6 +119,17 @@ func setFieldByPath(cfg *SeiConfig, path string, value string) error {
 }
 
 func setReflectValue(v reflect.Value, s string) error {
+	// A pointer field is the tri-state form: nil renders as an absent key, so
+	// the binary's own default applies. Allocate before setting, otherwise an
+	// override on such a field reaches the type switch as a pointer and is
+	// rejected as unsupported.
+	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+		return setReflectValue(v.Elem(), s)
+	}
+
 	if v.Type() == reflect.TypeFor[Duration]() {
 		var d Duration
 		if err := d.UnmarshalText([]byte(s)); err != nil {

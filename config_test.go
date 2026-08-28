@@ -1,11 +1,14 @@
 package seiconfig
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/BurntSushi/toml"
 )
 
 const testRPCAddr = "tcp://0.0.0.0:26657"
@@ -444,6 +447,85 @@ func TestApplyOverrides_Bool(t *testing.T) {
 		t.Error("expected AllowDuplicateIP to be false")
 	}
 }
+
+// TestWriteModeEnableAuto_Tristate covers the three states a reserve node
+// depends on: absent so the binary's default applies, explicitly false to pin
+// the node to its own write mode, and explicitly true.
+func TestWriteModeEnableAuto_Tristate(t *testing.T) {
+	encode := func(t *testing.T, cfg *SeiConfig) string {
+		t.Helper()
+		var buf bytes.Buffer
+		if err := toml.NewEncoder(&buf).Encode(cfg.toLegacyApp()); err != nil {
+			t.Fatalf("encoding app.toml: %v", err)
+		}
+		return buf.String()
+	}
+
+	t.Run("unset omits the key", func(t *testing.T) {
+		cfg := Default()
+		if cfg.Storage.StateCommit.WriteModeEnableAuto != nil {
+			t.Fatal("default should leave WriteModeEnableAuto unset")
+		}
+		if got := encode(t, cfg); strings.Contains(got, "sc-write-mode-enable-auto") {
+			t.Error("unset value must not render the key, so the binary keeps its own default")
+		}
+	})
+
+	t.Run("override to false renders false", func(t *testing.T) {
+		cfg := Default()
+		if err := ApplyOverrides(cfg, map[string]string{
+			"storage.state_commit.write_mode_enable_auto": "false",
+		}); err != nil {
+			t.Fatalf("ApplyOverrides: %v", err)
+		}
+		got := cfg.Storage.StateCommit.WriteModeEnableAuto
+		if got == nil || *got {
+			t.Fatalf("WriteModeEnableAuto: got %v, want pointer to false", got)
+		}
+		if out := encode(t, cfg); !strings.Contains(out, "sc-write-mode-enable-auto = false") {
+			t.Error("an explicit false must render; omitempty on a pointer drops only nil")
+		}
+	})
+
+	t.Run("override to true renders true", func(t *testing.T) {
+		cfg := Default()
+		if err := ApplyOverrides(cfg, map[string]string{
+			"storage.state_commit.write_mode_enable_auto": "true",
+		}); err != nil {
+			t.Fatalf("ApplyOverrides: %v", err)
+		}
+		got := cfg.Storage.StateCommit.WriteModeEnableAuto
+		if got == nil || !*got {
+			t.Fatalf("WriteModeEnableAuto: got %v, want pointer to true", got)
+		}
+		if out := encode(t, cfg); !strings.Contains(out, "sc-write-mode-enable-auto = true") {
+			t.Error("an explicit true must render")
+		}
+	})
+}
+
+// TestWriteModeEnableAuto_RoundTrip checks that reading back a rendered
+// app.toml preserves the pin, so a re-render does not silently unpin the node.
+func TestWriteModeEnableAuto_RoundTrip(t *testing.T) {
+	for _, want := range []*bool{nil, boolPtr(false), boolPtr(true)} {
+		cfg := Default()
+		cfg.Storage.StateCommit.WriteModeEnableAuto = want
+
+		back := fromLegacy(cfg.toLegacyTendermint(), cfg.toLegacyApp())
+		got := back.Storage.StateCommit.WriteModeEnableAuto
+
+		switch {
+		case want == nil && got != nil:
+			t.Errorf("unset round-tripped to %v", *got)
+		case want != nil && got == nil:
+			t.Errorf("%v round-tripped to unset", *want)
+		case want != nil && got != nil && *want != *got:
+			t.Errorf("round-trip: got %v, want %v", *got, *want)
+		}
+	}
+}
+
+func boolPtr(b bool) *bool { return &b }
 
 func TestApplyOverrides_Uint(t *testing.T) {
 	cfg := Default()

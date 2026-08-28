@@ -261,6 +261,10 @@ type legacyStateCommit struct {
 	AsyncCommitBuffer int    `toml:"sc-async-commit-buffer"`
 	WriteMode         string `toml:"sc-write-mode,omitempty"`
 	ReadMode          string `toml:"sc-read-mode,omitempty"`
+	// omitempty on a pointer omits only nil, so an explicit false still
+	// renders. A bare bool could not express the pin: omitempty would drop
+	// false, and without omitempty every node would emit the key.
+	WriteModeEnableAuto *bool `toml:"sc-write-mode-enable-auto,omitempty"`
 
 	KeepRecent                uint32  `toml:"sc-keep-recent"`
 	SnapshotInterval          uint32  `toml:"sc-snapshot-interval"`
@@ -589,6 +593,7 @@ func (cfg *SeiConfig) toLegacyApp() legacyAppConfig {
 			AsyncCommitBuffer:         cfg.Storage.StateCommit.AsyncCommitBuffer,
 			WriteMode:                 string(cfg.Storage.StateCommit.WriteMode),
 			ReadMode:                  string(cfg.Storage.StateCommit.ReadMode),
+			WriteModeEnableAuto:       cfg.Storage.StateCommit.WriteModeEnableAuto,
 			KeepRecent:                cfg.Storage.StateCommit.MemIAVL.SnapshotKeepRecent,
 			SnapshotInterval:          cfg.Storage.StateCommit.MemIAVL.SnapshotInterval,
 			SnapshotMinTimeInterval:   cfg.Storage.StateCommit.MemIAVL.SnapshotMinTimeInterval,
@@ -849,11 +854,12 @@ func fromLegacy(tm legacyTendermintConfig, app legacyAppConfig) *SeiConfig {
 			CompactionInterval:  app.CompactionInterval,
 			IAVLDisableFastNode: app.IAVLDisableFastNode,
 			StateCommit: StateCommitConfig{
-				Enable:            app.StateCommit.Enable,
-				Directory:         app.StateCommit.Directory,
-				AsyncCommitBuffer: app.StateCommit.AsyncCommitBuffer,
-				WriteMode:         WriteMode(app.StateCommit.WriteMode),
-				ReadMode:          ReadMode(app.StateCommit.ReadMode),
+				Enable:              app.StateCommit.Enable,
+				Directory:           app.StateCommit.Directory,
+				AsyncCommitBuffer:   app.StateCommit.AsyncCommitBuffer,
+				WriteMode:           WriteMode(app.StateCommit.WriteMode),
+				ReadMode:            ReadMode(app.StateCommit.ReadMode),
+				WriteModeEnableAuto: app.StateCommit.WriteModeEnableAuto,
 				MemIAVL: MemIAVLConfig{
 					SnapshotKeepRecent:        app.StateCommit.KeepRecent,
 					SnapshotInterval:          app.StateCommit.SnapshotInterval,

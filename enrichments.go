@@ -219,6 +219,9 @@ func DefaultEnrichments() map[string][]FieldOption {
 		"storage.state_commit.write_mode": {
 			WithDescription("EVM write routing: cosmos_only, dual_write, split_write, evm_only."),
 		},
+		"storage.state_commit.write_mode_enable_auto": {
+			WithDescription("Derive the write mode from committed migration state instead of honoring write_mode. Unset means enabled. Set false to pin a node, which then does not follow a governance-driven migration."),
+		},
 		"storage.state_commit.read_mode": {
 			WithDescription("EVM read routing: cosmos_only, evm_first, split_read."),
 		},
