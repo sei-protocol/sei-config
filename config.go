@@ -333,6 +333,14 @@ type StateCommitConfig struct {
 	WriteMode         WriteMode `toml:"write_mode"`
 	ReadMode          ReadMode  `toml:"read_mode"`
 
+	// WriteModeEnableAuto controls whether the binary derives its write mode
+	// from committed migration state instead of honoring WriteMode. Nil leaves
+	// the key out of the rendered app.toml, which the binary reads as enabled.
+	// Set it to false to pin a node to its explicit WriteMode; such a node does
+	// not follow a governance-driven migration and diverges once the chain
+	// migrates, which is what a reserve node is for.
+	WriteModeEnableAuto *bool `toml:"write_mode_enable_auto"`
+
 	MemIAVL MemIAVLConfig `toml:"memiavl"`
 }
 
