@@ -120,14 +120,22 @@ func setFieldByPath(cfg *SeiConfig, path string, value string) error {
 
 func setReflectValue(v reflect.Value, s string) error {
 	// A pointer field is the tri-state form: nil renders as an absent key, so
-	// the binary's own default applies. Allocate before setting, otherwise an
-	// override on such a field reaches the type switch as a pointer and is
-	// rejected as unsupported.
+	// the binary's own default applies. Such a field reaches the type switch as
+	// a pointer and would be rejected as unsupported, so resolve it here.
+	//
+	// The value is parsed into a fresh pointee and the pointer is replaced only
+	// once parsing succeeds. Writing through an existing pointee instead would
+	// reach whatever else aliases it — ResolveIncrementalIntent shallow-copies
+	// the caller's config, so the copy and the original share every pointer —
+	// and would leave a rejected value behind as a pointer to the zero value,
+	// which for storage.state_commit.write_mode_enable_auto is false, a pin.
 	if v.Kind() == reflect.Ptr {
-		if v.IsNil() {
-			v.Set(reflect.New(v.Type().Elem()))
+		elem := reflect.New(v.Type().Elem())
+		if err := setReflectValue(elem.Elem(), s); err != nil {
+			return err
 		}
-		return setReflectValue(v.Elem(), s)
+		v.Set(elem)
+		return nil
 	}
 
 	if v.Type() == reflect.TypeFor[Duration]() {
