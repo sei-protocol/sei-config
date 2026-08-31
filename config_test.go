@@ -527,6 +527,50 @@ func TestWriteModeEnableAuto_RoundTrip(t *testing.T) {
 
 func boolPtr(b bool) *bool { return &b }
 
+// TestApplyOverrides_PointerDoesNotAliasCaller pins that overriding a pointer
+// field replaces the pointer rather than writing through the existing pointee.
+// ResolveIncrementalIntent shallow-copies the caller's config, so the copy and
+// the original share every pointer, and writing through one would silently
+// change the other.
+func TestApplyOverrides_PointerDoesNotAliasCaller(t *testing.T) {
+	current := Default()
+	current.Storage.StateCommit.WriteModeEnableAuto = boolPtr(true)
+
+	res, err := ResolveIncrementalIntent(ConfigIntent{
+		Overrides: map[string]string{
+			"storage.state_commit.write_mode_enable_auto": "false",
+		},
+	}, current)
+	if err != nil {
+		t.Fatalf("ResolveIncrementalIntent: %v", err)
+	}
+	if !res.Valid {
+		t.Fatalf("result not valid: %+v", res.Diagnostics)
+	}
+
+	got := current.Storage.StateCommit.WriteModeEnableAuto
+	if got == nil || !*got {
+		t.Errorf("the caller's config was mutated: got %v, want unchanged pointer to true", got)
+	}
+}
+
+// TestApplyOverrides_PointerRejectedValueLeavesFieldUnset pins that a rejected
+// value does not land as a pointer to the zero value. For
+// write_mode_enable_auto that zero is false, which renders a pin, and ResolveEnv
+// only warns on a bad value, so the field must be left as it was.
+func TestApplyOverrides_PointerRejectedValueLeavesFieldUnset(t *testing.T) {
+	cfg := Default()
+	err := ApplyOverrides(cfg, map[string]string{
+		"storage.state_commit.write_mode_enable_auto": "not-a-bool",
+	})
+	if err == nil {
+		t.Fatal("expected an error for an invalid bool")
+	}
+	if got := cfg.Storage.StateCommit.WriteModeEnableAuto; got != nil {
+		t.Errorf("rejected value left the field set to %v; a pin must never come from a parse failure", *got)
+	}
+}
+
 func TestApplyOverrides_Uint(t *testing.T) {
 	cfg := Default()
 	if err := ApplyOverrides(cfg, map[string]string{
