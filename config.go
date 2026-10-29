@@ -434,6 +434,50 @@ type EVMConfig struct {
 	WorkerPoolSize   int      `toml:"worker_pool_size"`
 	WorkerQueueSize  int      `toml:"worker_queue_size"`
 
+	MaxFilters           uint64 `toml:"max_filters"`
+	MaxBlockFilterHashes uint64 `toml:"max_block_filter_hashes"`
+	MaxSubscriptionsLogs uint64 `toml:"max_subscriptions_logs"`
+	MaxLogBytes          int64  `toml:"max_log_bytes"`
+
+	EnableSimulation         bool `toml:"enable_simulation"`
+	MaxEstimateGasCalls      int  `toml:"max_estimate_gas_calls"`
+	MaxStateOverrideAccounts int  `toml:"max_state_override_accounts"`
+	MaxStateOverrideSlots    int  `toml:"max_state_override_slots"`
+
+	MaxTraceStructLogBytes       uint64   `toml:"max_trace_struct_log_bytes"`
+	TraceAllowedTracers          []string `toml:"trace_allowed_tracers"`
+	TraceAllowJSTracers          bool     `toml:"trace_allow_js_tracers"`
+	EnableParallelizedBlockTrace bool     `toml:"enable_parallelized_block_trace"`
+
+	// Trace baking re-executes each committed block in the background and
+	// caches the trace output so debug_trace* can serve from cache.
+	TraceBakeEnabled        bool     `toml:"trace_bake_enabled"`
+	TraceBakeWorkers        int      `toml:"trace_bake_workers"`
+	TraceBakeQueueSize      int      `toml:"trace_bake_queue_size"`
+	TraceBakeTracers        []string `toml:"trace_bake_tracers"`
+	TraceBakeWindowBlocks   int64    `toml:"trace_bake_window_blocks"`
+	TraceBakeUseSnapshot    bool     `toml:"trace_bake_use_snapshot"`
+	TraceBakeSnapshotWindow int64    `toml:"trace_bake_snapshot_window"`
+
+	// Per-IP rate limiting and request admission on the EVM HTTP plane.
+	RateLimitingEnabled bool     `toml:"rate_limiting_enabled"`
+	IPRateLimitRPS      float64  `toml:"ip_rate_limit_rps"`
+	IPRateLimitBurst    int      `toml:"ip_rate_limit_burst"`
+	TrustedProxyCIDRs   []string `toml:"trusted_proxy_cidrs"`
+
+	BatchRequestLimit         int      `toml:"batch_request_limit"`
+	BatchResponseMaxSize      int      `toml:"batch_response_max_size"`
+	MaxRequestBodyBytes       int64    `toml:"max_request_body_bytes"`
+	MaxConcurrentRequestBytes int64    `toml:"max_concurrent_request_bytes"`
+	BodyReadIdleTimeout       Duration `toml:"body_read_idle_timeout"`
+	WSAdmissionTimeout        Duration `toml:"ws_admission_timeout"`
+	MaxOpenConnections        int      `toml:"max_open_connections"`
+
+	// RPCMethodTimeouts entries are "method=duration" (e.g. "eth_call=60s");
+	// a method ending in "*" matches every method with that prefix.
+	RPCDefaultTimeout Duration `toml:"rpc_default_timeout"`
+	RPCMethodTimeouts []string `toml:"rpc_method_timeouts"`
+
 	Query     EVMQueryConfig     `toml:"query"`
 	Replay    EVMReplayConfig    `toml:"replay"`
 	BlockTest EVMBlockTestConfig `toml:"block_test"`
@@ -585,4 +629,19 @@ func defaultConcurrencyWorkers() int {
 
 func defaultEVMWorkerPoolSize() int {
 	return min(64, runtime.NumCPU()*2)
+}
+
+// nativeTraceTracers are the native geth tracer names seid accepts in
+// evm.trace_allowed_tracers and evm.trace_bake_tracers.
+var nativeTraceTracers = map[string]bool{
+	"4byteTracer":    true,
+	"callTracer":     true,
+	"flatCallTracer": true,
+	"muxTracer":      true,
+	"noopTracer":     true,
+	"prestateTracer": true,
+}
+
+func defaultTraceAllowedTracers() []string {
+	return []string{"callTracer", "prestateTracer", "flatCallTracer", "4byteTracer", "noopTracer", "muxTracer"}
 }

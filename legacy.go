@@ -334,6 +334,38 @@ type legacyEVM struct {
 	RPCStatsInterval             Duration `toml:"rpc_stats_interval"`
 	WorkerPoolSize               int      `toml:"worker_pool_size"`
 	WorkerQueueSize              int      `toml:"worker_queue_size"`
+	MaxFilters                   uint64   `toml:"max_filters"`
+	MaxBlockFilterHashes         uint64   `toml:"max_block_filter_hashes"`
+	MaxSubscriptionsLogs         uint64   `toml:"max_subscriptions_logs"`
+	MaxLogBytes                  int64    `toml:"max_log_bytes"`
+	EnableSimulation             bool     `toml:"enable_simulation"`
+	MaxEstimateGasCalls          int      `toml:"max_estimate_gas_calls"`
+	MaxStateOverrideAccounts     int      `toml:"max_state_override_accounts"`
+	MaxStateOverrideSlots        int      `toml:"max_state_override_slots"`
+	MaxTraceStructLogBytes       uint64   `toml:"max_trace_struct_log_bytes"`
+	TraceAllowedTracers          []string `toml:"trace_allowed_tracers"`
+	TraceAllowJSTracers          bool     `toml:"trace_allow_js_tracers"`
+	EnableParallelizedBlockTrace bool     `toml:"enable_parallelized_block_trace"`
+	TraceBakeEnabled             bool     `toml:"trace_bake_enabled"`
+	TraceBakeWorkers             int      `toml:"trace_bake_workers"`
+	TraceBakeQueueSize           int      `toml:"trace_bake_queue_size"`
+	TraceBakeTracers             []string `toml:"trace_bake_tracers"`
+	TraceBakeWindowBlocks        int64    `toml:"trace_bake_window_blocks"`
+	TraceBakeUseSnapshot         bool     `toml:"trace_bake_use_snapshot"`
+	TraceBakeSnapshotWindow      int64    `toml:"trace_bake_snapshot_window"`
+	RateLimitingEnabled          bool     `toml:"rate_limiting_enabled"`
+	IPRateLimitRPS               float64  `toml:"ip_rate_limit_rps"`
+	IPRateLimitBurst             int      `toml:"ip_rate_limit_burst"`
+	TrustedProxyCIDRs            []string `toml:"trusted_proxy_cidrs"`
+	BatchRequestLimit            int      `toml:"batch_request_limit"`
+	BatchResponseMaxSize         int      `toml:"batch_response_max_size"`
+	MaxRequestBodyBytes          int64    `toml:"max_request_body_bytes"`
+	MaxConcurrentRequestBytes    int64    `toml:"max_concurrent_request_bytes"`
+	BodyReadIdleTimeout          Duration `toml:"body_read_idle_timeout"`
+	WSAdmissionTimeout           Duration `toml:"ws_admission_timeout"`
+	MaxOpenConnections           int      `toml:"max_open_connections"`
+	RPCDefaultTimeout            Duration `toml:"rpc_default_timeout"`
+	RPCMethodTimeouts            []string `toml:"rpc_method_timeouts"`
 }
 
 type legacyWASM struct {
@@ -656,6 +688,38 @@ func (cfg *SeiConfig) toLegacyApp() legacyAppConfig {
 			RPCStatsInterval:             cfg.EVM.RPCStatsInterval,
 			WorkerPoolSize:               cfg.EVM.WorkerPoolSize,
 			WorkerQueueSize:              cfg.EVM.WorkerQueueSize,
+			MaxFilters:                   cfg.EVM.MaxFilters,
+			MaxBlockFilterHashes:         cfg.EVM.MaxBlockFilterHashes,
+			MaxSubscriptionsLogs:         cfg.EVM.MaxSubscriptionsLogs,
+			MaxLogBytes:                  cfg.EVM.MaxLogBytes,
+			EnableSimulation:             cfg.EVM.EnableSimulation,
+			MaxEstimateGasCalls:          cfg.EVM.MaxEstimateGasCalls,
+			MaxStateOverrideAccounts:     cfg.EVM.MaxStateOverrideAccounts,
+			MaxStateOverrideSlots:        cfg.EVM.MaxStateOverrideSlots,
+			MaxTraceStructLogBytes:       cfg.EVM.MaxTraceStructLogBytes,
+			TraceAllowedTracers:          cfg.EVM.TraceAllowedTracers,
+			TraceAllowJSTracers:          cfg.EVM.TraceAllowJSTracers,
+			EnableParallelizedBlockTrace: cfg.EVM.EnableParallelizedBlockTrace,
+			TraceBakeEnabled:             cfg.EVM.TraceBakeEnabled,
+			TraceBakeWorkers:             cfg.EVM.TraceBakeWorkers,
+			TraceBakeQueueSize:           cfg.EVM.TraceBakeQueueSize,
+			TraceBakeTracers:             cfg.EVM.TraceBakeTracers,
+			TraceBakeWindowBlocks:        cfg.EVM.TraceBakeWindowBlocks,
+			TraceBakeUseSnapshot:         cfg.EVM.TraceBakeUseSnapshot,
+			TraceBakeSnapshotWindow:      cfg.EVM.TraceBakeSnapshotWindow,
+			RateLimitingEnabled:          cfg.EVM.RateLimitingEnabled,
+			IPRateLimitRPS:               cfg.EVM.IPRateLimitRPS,
+			IPRateLimitBurst:             cfg.EVM.IPRateLimitBurst,
+			TrustedProxyCIDRs:            cfg.EVM.TrustedProxyCIDRs,
+			BatchRequestLimit:            cfg.EVM.BatchRequestLimit,
+			BatchResponseMaxSize:         cfg.EVM.BatchResponseMaxSize,
+			MaxRequestBodyBytes:          cfg.EVM.MaxRequestBodyBytes,
+			MaxConcurrentRequestBytes:    cfg.EVM.MaxConcurrentRequestBytes,
+			BodyReadIdleTimeout:          cfg.EVM.BodyReadIdleTimeout,
+			WSAdmissionTimeout:           cfg.EVM.WSAdmissionTimeout,
+			MaxOpenConnections:           cfg.EVM.MaxOpenConnections,
+			RPCDefaultTimeout:            cfg.EVM.RPCDefaultTimeout,
+			RPCMethodTimeouts:            cfg.EVM.RPCMethodTimeouts,
 		},
 
 		WASM: legacyWASM{
@@ -928,6 +992,38 @@ func fromLegacy(tm legacyTendermintConfig, app legacyAppConfig) *SeiConfig {
 			RPCStatsInterval:             app.EVM.RPCStatsInterval,
 			WorkerPoolSize:               app.EVM.WorkerPoolSize,
 			WorkerQueueSize:              app.EVM.WorkerQueueSize,
+			MaxFilters:                   app.EVM.MaxFilters,
+			MaxBlockFilterHashes:         app.EVM.MaxBlockFilterHashes,
+			MaxSubscriptionsLogs:         app.EVM.MaxSubscriptionsLogs,
+			MaxLogBytes:                  app.EVM.MaxLogBytes,
+			EnableSimulation:             app.EVM.EnableSimulation,
+			MaxEstimateGasCalls:          app.EVM.MaxEstimateGasCalls,
+			MaxStateOverrideAccounts:     app.EVM.MaxStateOverrideAccounts,
+			MaxStateOverrideSlots:        app.EVM.MaxStateOverrideSlots,
+			MaxTraceStructLogBytes:       app.EVM.MaxTraceStructLogBytes,
+			TraceAllowedTracers:          app.EVM.TraceAllowedTracers,
+			TraceAllowJSTracers:          app.EVM.TraceAllowJSTracers,
+			EnableParallelizedBlockTrace: app.EVM.EnableParallelizedBlockTrace,
+			TraceBakeEnabled:             app.EVM.TraceBakeEnabled,
+			TraceBakeWorkers:             app.EVM.TraceBakeWorkers,
+			TraceBakeQueueSize:           app.EVM.TraceBakeQueueSize,
+			TraceBakeTracers:             app.EVM.TraceBakeTracers,
+			TraceBakeWindowBlocks:        app.EVM.TraceBakeWindowBlocks,
+			TraceBakeUseSnapshot:         app.EVM.TraceBakeUseSnapshot,
+			TraceBakeSnapshotWindow:      app.EVM.TraceBakeSnapshotWindow,
+			RateLimitingEnabled:          app.EVM.RateLimitingEnabled,
+			IPRateLimitRPS:               app.EVM.IPRateLimitRPS,
+			IPRateLimitBurst:             app.EVM.IPRateLimitBurst,
+			TrustedProxyCIDRs:            app.EVM.TrustedProxyCIDRs,
+			BatchRequestLimit:            app.EVM.BatchRequestLimit,
+			BatchResponseMaxSize:         app.EVM.BatchResponseMaxSize,
+			MaxRequestBodyBytes:          app.EVM.MaxRequestBodyBytes,
+			MaxConcurrentRequestBytes:    app.EVM.MaxConcurrentRequestBytes,
+			BodyReadIdleTimeout:          app.EVM.BodyReadIdleTimeout,
+			WSAdmissionTimeout:           app.EVM.WSAdmissionTimeout,
+			MaxOpenConnections:           app.EVM.MaxOpenConnections,
+			RPCDefaultTimeout:            app.EVM.RPCDefaultTimeout,
+			RPCMethodTimeouts:            app.EVM.RPCMethodTimeouts,
 			Query: EVMQueryConfig{
 				GasLimit: app.EVMQuery.GasLimit,
 			},
@@ -1036,4 +1132,49 @@ func splitRPCServers(s string) []string {
 		}
 	}
 	return out
+}
+
+// newLegacyEVMForRead returns the [evm] decode target for app.toml, seeded with
+// defaults for the keys sei-config added after nodes already had app.toml files
+// rendered without them. Decoding leaves an absent key at its seeded value, so
+// such a file reads back at seid's default rather than the zero value, which for
+// these keys would turn off rate limiting or fail seid's startup checks
+// (max_filters = 0). Keys present in the file, including an explicit empty
+// list, still decode as written.
+func newLegacyEVMForRead() legacyEVM {
+	d := baseDefaults().EVM
+	return legacyEVM{
+		MaxFilters:                   d.MaxFilters,
+		MaxBlockFilterHashes:         d.MaxBlockFilterHashes,
+		MaxSubscriptionsLogs:         d.MaxSubscriptionsLogs,
+		MaxLogBytes:                  d.MaxLogBytes,
+		EnableSimulation:             d.EnableSimulation,
+		MaxEstimateGasCalls:          d.MaxEstimateGasCalls,
+		MaxStateOverrideAccounts:     d.MaxStateOverrideAccounts,
+		MaxStateOverrideSlots:        d.MaxStateOverrideSlots,
+		MaxTraceStructLogBytes:       d.MaxTraceStructLogBytes,
+		TraceAllowedTracers:          d.TraceAllowedTracers,
+		TraceAllowJSTracers:          d.TraceAllowJSTracers,
+		EnableParallelizedBlockTrace: d.EnableParallelizedBlockTrace,
+		TraceBakeEnabled:             d.TraceBakeEnabled,
+		TraceBakeWorkers:             d.TraceBakeWorkers,
+		TraceBakeQueueSize:           d.TraceBakeQueueSize,
+		TraceBakeTracers:             d.TraceBakeTracers,
+		TraceBakeWindowBlocks:        d.TraceBakeWindowBlocks,
+		TraceBakeUseSnapshot:         d.TraceBakeUseSnapshot,
+		TraceBakeSnapshotWindow:      d.TraceBakeSnapshotWindow,
+		RateLimitingEnabled:          d.RateLimitingEnabled,
+		IPRateLimitRPS:               d.IPRateLimitRPS,
+		IPRateLimitBurst:             d.IPRateLimitBurst,
+		TrustedProxyCIDRs:            d.TrustedProxyCIDRs,
+		BatchRequestLimit:            d.BatchRequestLimit,
+		BatchResponseMaxSize:         d.BatchResponseMaxSize,
+		MaxRequestBodyBytes:          d.MaxRequestBodyBytes,
+		MaxConcurrentRequestBytes:    d.MaxConcurrentRequestBytes,
+		BodyReadIdleTimeout:          d.BodyReadIdleTimeout,
+		WSAdmissionTimeout:           d.WSAdmissionTimeout,
+		MaxOpenConnections:           d.MaxOpenConnections,
+		RPCDefaultTimeout:            d.RPCDefaultTimeout,
+		RPCMethodTimeouts:            d.RPCMethodTimeouts,
+	}
 }

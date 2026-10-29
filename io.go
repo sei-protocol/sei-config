@@ -30,7 +30,7 @@ func ReadConfigFromDir(homeDir string) (*SeiConfig, error) {
 		return nil, fmt.Errorf("reading %s: %w", configPath, err)
 	}
 
-	var app legacyAppConfig
+	app := legacyAppConfig{EVM: newLegacyEVMForRead()}
 	if err := decodeTOMLFile(appPath, &app); err != nil {
 		return nil, fmt.Errorf("reading %s: %w", appPath, err)
 	}

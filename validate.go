@@ -4,6 +4,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"net"
+	"strings"
+	"time"
 )
 
 // Severity classifies a validation finding.
@@ -299,6 +302,77 @@ func validateEVM(r *ValidationResult, cfg *SeiConfig) {
 	if cfg.Mode == ModeValidator && (e.HTTPEnabled || e.WSEnabled) {
 		r.addWarning("evm", "EVM RPC is enabled on a validator node; this is unusual and may increase attack surface")
 	}
+
+	// The checks below mirror the ones seid fails startup on.
+	if e.MaxFilters == 0 {
+		r.addError("evm.max_filters", "must be > 0")
+	}
+	if e.MaxBlockFilterHashes == 0 {
+		r.addError("evm.max_block_filter_hashes", "must be > 0")
+	}
+	if e.MaxOpenConnections < 0 {
+		r.addError("evm.max_open_connections", "must be >= 0 (0 disables the limit)")
+	}
+	if e.BodyReadIdleTimeout.Duration < 0 {
+		r.addError("evm.body_read_idle_timeout", "must be >= 0 (0 disables the idle guard)")
+	}
+	if e.RPCDefaultTimeout.Duration < 0 {
+		r.addError("evm.rpc_default_timeout", "must be >= 0 (0 disables the default deadline)")
+	}
+	validateNativeTracers(r, "evm.trace_allowed_tracers", e.TraceAllowedTracers)
+	validateNativeTracers(r, "evm.trace_bake_tracers", e.TraceBakeTracers)
+	for _, cidr := range e.TrustedProxyCIDRs {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			r.addError("evm.trusted_proxy_cidrs", fmt.Sprintf("invalid CIDR %q", cidr))
+		}
+	}
+	for _, entry := range e.RPCMethodTimeouts {
+		if err := validateMethodTimeout(entry); err != nil {
+			r.addError("evm.rpc_method_timeouts", err.Error())
+		}
+	}
+	// The rate limiter charges one token per batch element, so a burst below
+	// the batch limit permanently rejects every full-size batch.
+	if e.RateLimitingEnabled && e.IPRateLimitBurst > 0 && e.BatchRequestLimit > 0 &&
+		e.IPRateLimitBurst < e.BatchRequestLimit {
+		r.addError("evm.ip_rate_limit_burst", fmt.Sprintf(
+			"must be >= evm.batch_request_limit (%d) when rate limiting is enabled; got %d",
+			e.BatchRequestLimit, e.IPRateLimitBurst))
+	}
+}
+
+func validateNativeTracers(r *ValidationResult, field string, names []string) {
+	for _, name := range names {
+		if !nativeTraceTracers[strings.TrimSpace(name)] {
+			r.addError(field, fmt.Sprintf("%q is not a native tracer", name))
+		}
+	}
+}
+
+// validateMethodTimeout checks one evm.rpc_method_timeouts entry the way seid
+// parses it: "method=duration", where a duration without a unit is read as
+// nanoseconds and a method may end in a single trailing "*" wildcard.
+func validateMethodTimeout(entry string) error {
+	method, raw, ok := strings.Cut(entry, "=")
+	if !ok || method == "" {
+		return fmt.Errorf("%q must be formatted as method=duration, for example eth_call=60s", entry)
+	}
+	if !strings.ContainsAny(raw, "nsuµmh") {
+		raw += "ns"
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		return fmt.Errorf("%q: %w", entry, err)
+	}
+	if d < 0 {
+		return fmt.Errorf("%q: duration must be >= 0 (0 disables the method deadline)", entry)
+	}
+	prefix, wildcard := strings.CutSuffix(method, "*")
+	if strings.Contains(prefix, "*") || (wildcard && prefix == "") {
+		return fmt.Errorf("%q: \"*\" is only supported as a trailing wildcard after a non-empty prefix, "+
+			"for example debug_trace*", entry)
+	}
+	return nil
 }
 
 func validateMetrics(r *ValidationResult, cfg *SeiConfig) {
