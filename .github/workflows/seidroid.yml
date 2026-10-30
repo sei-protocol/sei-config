@@ -1,0 +1,89 @@
+# Wiring only. The review logic lives in sei-protocol/uci and the reviewer binary in
+# sei-protocol/sei-internal-skills; both document their own behaviour and inputs.
+#
+#   @seidroid review                  review this pull request
+#   @seidroid review close            destroy this pull request's session now
+name: seidroid review
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [opened, ready_for_review, synchronize, reopened, closed]
+
+permissions: {}
+
+jobs:
+  # A run Dependabot triggers (opening or updating its pull request) gets
+  # Dependabot secrets only, so the review would fail on the missing machine
+  # credential; it is skipped. GitHub picks the secrets by who triggered the
+  # run, so a person's push, or `@seidroid review`, on a Dependabot pull request
+  # still reviews it.
+  seidroid-review:
+    if: >-
+      (github.event_name == 'pull_request' &&
+        github.event.action != 'closed' &&
+        github.actor != 'dependabot[bot]') ||
+      (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request != null &&
+        contains(github.event.comment.body, '@seidroid review') &&
+        !contains(github.event.comment.body, '@seidroid review close'))
+    uses: sei-protocol/uci/.github/workflows/seidroid-review.yml@a3e422db031508ff0b2adf2e66e5a2860a8858e2 # v0.0.27
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+      issues: write
+    secrets:
+      OMNIGENT_MACHINE_CLIENT_SECRET: ${{ secrets.OMNIGENT_MACHINE_CLIENT_SECRET }}
+      SEIDROID_APP_ID: ${{ secrets.PLATFORM_CODE_AGENT_APP_ID }}
+      SEIDROID_APP_PRIVATE_KEY: ${{ secrets.PLATFORM_CODE_AGENT_APP_PK }}
+    with:
+      mode: review
+      approve-on-success: true
+      allowed-team: 'sei-protocol/sei-core'
+      # Unset reads REVIEW.md, which this repository does not keep.
+      guidelines-file: CLAUDE.md
+
+  seidroid-review-close:
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request != null &&
+      contains(github.event.comment.body, '@seidroid review close')
+    uses: sei-protocol/uci/.github/workflows/seidroid-review.yml@a3e422db031508ff0b2adf2e66e5a2860a8858e2 # v0.0.27
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+      issues: write
+    secrets:
+      OMNIGENT_MACHINE_CLIENT_SECRET: ${{ secrets.OMNIGENT_MACHINE_CLIENT_SECRET }}
+      SEIDROID_APP_ID: ${{ secrets.PLATFORM_CODE_AGENT_APP_ID }}
+      SEIDROID_APP_PRIVATE_KEY: ${{ secrets.PLATFORM_CODE_AGENT_APP_PK }}
+    with:
+      mode: close
+      allowed-team: 'sei-protocol/sei-core'
+
+  # Does not cover a fork: GitHub withholds secrets from a `pull_request` run whose
+  # head is a fork, so the close fails and the sandbox is left running. On a fork
+  # pull request, comment `@seidroid review close` before merging.
+  seidroid-review-reclaim:
+    # Skipped only when Dependabot itself closes the pull request (a superseded
+    # update), because that run lacks the secrets. When a person merges or
+    # closes it, the run has them and reclaims any session a manual review made.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      github.actor != 'dependabot[bot]'
+    uses: sei-protocol/uci/.github/workflows/seidroid-review.yml@a3e422db031508ff0b2adf2e66e5a2860a8858e2 # v0.0.27
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+      issues: write
+    secrets:
+      OMNIGENT_MACHINE_CLIENT_SECRET: ${{ secrets.OMNIGENT_MACHINE_CLIENT_SECRET }}
+      SEIDROID_APP_ID: ${{ secrets.PLATFORM_CODE_AGENT_APP_ID }}
+      SEIDROID_APP_PRIVATE_KEY: ${{ secrets.PLATFORM_CODE_AGENT_APP_PK }}
+    with:
+      mode: close
