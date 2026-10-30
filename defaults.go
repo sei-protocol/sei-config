@@ -179,6 +179,33 @@ func baseDefaults() *SeiConfig {
 			RPCStatsInterval:             Dur(10 * time.Second),
 			WorkerPoolSize:               defaultEVMWorkerPoolSize(),
 			WorkerQueueSize:              1000,
+			MaxFilters:                   1000,
+			MaxBlockFilterHashes:         1000,
+			MaxSubscriptionsLogs:         1000,
+			MaxLogBytes:                  64 << 20, // 64 MiB
+			EnableSimulation:             true,
+			MaxEstimateGasCalls:          100,
+			MaxStateOverrideAccounts:     100,
+			MaxStateOverrideSlots:        1000,
+			MaxTraceStructLogBytes:       32 << 20, // 32 MiB
+			TraceAllowedTracers:          defaultTraceAllowedTracers(),
+			TraceBakeWorkers:             1,
+			TraceBakeQueueSize:           4096,
+			TraceBakeTracers:             []string{"callTracer"},
+			TraceBakeSnapshotWindow:      64,
+			RateLimitingEnabled:          true,
+			IPRateLimitRPS:               200,
+			IPRateLimitBurst:             200,
+			TrustedProxyCIDRs:            []string{},
+			BatchRequestLimit:            100,
+			BatchResponseMaxSize:         25_000_000, // 25 MB
+			MaxRequestBodyBytes:          5 << 20,    // 5 MiB
+			MaxConcurrentRequestBytes:    128 << 20,  // 128 MiB
+			BodyReadIdleTimeout:          Dur(10 * time.Second),
+			WSAdmissionTimeout:           Dur(30 * time.Second),
+			MaxOpenConnections:           2000,
+			RPCDefaultTimeout:            Dur(30 * time.Second),
+			RPCMethodTimeouts:            []string{"eth_estimateGasAfterCalls=5m"},
 			Query: EVMQueryConfig{
 				GasLimit: 300_000,
 			},
